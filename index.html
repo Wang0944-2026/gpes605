@@ -309,7 +309,7 @@
         
         <!-- 頁尾版本宣告 -->
         <footer class="text-center text-slate-500 text-sm font-medium mt-2 mb-6 tracking-wide">
-            大榮老師製作 &copy; 2026 | Version 1.5 (v1.5)
+            大榮老師製作 &copy; 2026 | Version 1.7 (v1.7)
         </footer>
     </div>
 
@@ -340,10 +340,10 @@
 
         const CACHE_CONFIG = {
             TTL: 12 * 60 * 60 * 1000, 
-            CLASS_ID: '605', // 更新 CLASS_ID 為 605 避免與 601 衝突
+            CLASS_ID: '605',
             SHOW_SYNC_HINTS: false,
             PREFETCH_WEEKENDS: false,
-            VERSION: '1.14.0', // 升級快取以對應新版後端
+            VERSION: '1.16.0', // 升級快取，強制作廢舊有無法解析純文字的快取
             DEBUG: true, 
             BACKGROUND_UPDATE_INTERVAL: 5000, 
             BACKGROUND_UPDATE_ENABLED: true 
@@ -355,6 +355,8 @@
         let backgroundUpdateTimer = null;
         let isBackgroundUpdating = false;
         let lastBackgroundUpdate = 0;
+        let lastSyncedLocalData = null;
+        let lastSyncedGlobalData = null;
 
         function dateKeyISO(d) {
             const yyyy = d.getFullYear();
@@ -363,23 +365,20 @@
             return `${yyyy}-${mm}-${dd}`;
         }
 
+        // 【強化解析引擎】：現在可以直接讀取 Google Sheets 手動輸入的純文字
         function parseRawData(rawData) {
+            if (!rawData) return [];
             if (typeof rawData === 'string') {
-                try { 
-                    return JSON.parse(rawData); 
-                } catch (e) { 
-                    try {
-                        let cleanStr = rawData.replace(/[\n\r\t]/g, ' ');
-                        return JSON.parse(cleanStr);
-                    } catch(e2) {
-                        if (rawData.startsWith('[{') && !rawData.endsWith('}]')) {
-                            try { return JSON.parse(rawData.replace(/,[^{]*$/, '') + '}]'); } catch(e3) {}
-                        }
-                        return [];
-                    }
+                const trimmed = rawData.trim();
+                // 嘗試解析是否為陣列或物件格式
+                if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                    try { return JSON.parse(trimmed); } catch (e) {}
+                    try { return JSON.parse(trimmed.replace(/[\n\r\t]/g, ' ')); } catch (e) {}
                 }
+                // 若都不是標準 JSON，就直接將試算表中的純文字回傳！(不會再消失)
+                return trimmed;
             }
-            return rawData || [];
+            return rawData;
         }
 
         class CacheItem {
@@ -439,9 +438,18 @@
 
         function calculateStableHash(rawData) {
             let parsedData = parseRawData(rawData);
-            if (!Array.isArray(parsedData)) return 'empty';
+            
+            // 處理試算表手打純文字的狀況 (依換行切割)
+            if (typeof parsedData === 'string') {
+                parsedData = parsedData.split('\n').map(s => s.trim()).filter(s => s !== '');
+            } else if (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) {
+                parsedData = [parsedData];
+            } else if (!Array.isArray(parsedData)) {
+                return 'empty';
+            }
+            
             const stableContent = parsedData.map(item => {
-                if (typeof item === 'string') return { content: item.trim(), subject: '國語', status: 'confirmed' };
+                if (typeof item === 'string') return { content: item.trim(), subject: '其它', status: 'confirmed' };
                 else if (item && typeof item === 'object') {
                     return {
                         content: (item.text || item.content || item.homework || '').toString().trim(),
@@ -472,11 +480,22 @@
 
         function normalizeHomeworkData(rawData) {
             let parsedData = parseRawData(rawData);
-            if (!Array.isArray(parsedData)) return [];
+            
+            // 處理試算表手打純文字的狀況 (依換行切割成多項作業)
+            if (typeof parsedData === 'string') {
+                parsedData = parsedData.split('\n').map(s => s.trim()).filter(s => s !== '');
+            } else if (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) {
+                parsedData = [parsedData];
+            } else if (!Array.isArray(parsedData)) {
+                return [];
+            }
+            
             return parsedData.map((item, index) => {
                 let content = '', subject = '國語', status = 'confirmed', timestamp = null;
-                if (typeof item === 'string') content = item.trim();
-                else if (item && typeof item === 'object') {
+                // 若為手打文字，一律放入內容，預設為國語
+                if (typeof item === 'string') {
+                    content = item.trim();
+                } else if (item && typeof item === 'object') {
                     content = (item.text || item.content || item.homework || '').toString().trim();
                     subject = item.subject || item.subj || '國語';
                     status = (item.confirmed === true || item.status === 'confirmed') ? 'confirmed' : (item.status === 'editing' ? 'editing' : 'confirmed');
@@ -488,24 +507,56 @@
         }
 
         async function performBackgroundUpdate() {
-            if (isBackgroundUpdating || editMode) return;
+            if (isBackgroundUpdating) return;
             const now = Date.now();
             if (now - lastBackgroundUpdate < CACHE_CONFIG.BACKGROUND_UPDATE_INTERVAL) return;
             isBackgroundUpdating = true;
             lastBackgroundUpdate = now;
-            try {
-                let hasChanges = false;
 
+            try {
                 const dateKey = dateKeyISO(currentDate);
+
+                // 1. 自動儲存 (Autosave) - 當處於編輯模式且有修改時
+                if (editMode) {
+                    const currentLocalData = JSON.stringify(homeworkData.map(h => ({ c: h.content, s: h.subject, st: h.status })));
+                    const currentGlobalData = JSON.stringify({ events: globalEvents, config: globalConfig });
+
+                    let shouldSave = false;
+                    if (lastSyncedLocalData !== null && lastSyncedLocalData !== currentLocalData) {
+                        await saveHomeworkInstantly();
+                        shouldSave = true;
+                    }
+                    if (lastSyncedGlobalData !== null && lastSyncedGlobalData !== currentGlobalData) {
+                        await saveGlobalEventsInstantly();
+                        shouldSave = true;
+                    }
+                    
+                    lastSyncedLocalData = currentLocalData;
+                    lastSyncedGlobalData = currentGlobalData;
+
+                    if (shouldSave) {
+                        showSyncStatus(true, '自動儲存中...');
+                        setTimeout(() => showSyncStatus(false), 2000);
+                    }
+                } else {
+                    // 當非編輯模式，清空狀態確保下次進入時為乾淨的起點
+                    lastSyncedLocalData = null;
+                    lastSyncedGlobalData = null;
+                }
+
+                // 2. 雲端拉取 (Pull) - 檢查是否有其他人或後端修改
                 const cacheItem = getFromMemoryCache(dateKey) || getFromLocalStorage(dateKey);
                 const cloudResult = await loadFromCloudWithCache(dateKey, true);
-                
+
+                let hasHomeworkChanges = false;
                 if (cloudResult && cloudResult.hash) {
                     if (!cacheItem || cacheItem.hash !== cloudResult.hash) {
-                        hasChanges = true;
+                        hasHomeworkChanges = true;
                     }
                 }
 
+                // 拉取全域跑馬燈設定
+                let hasGlobalChanges = false;
                 const params = new URLSearchParams({
                     action: 'loadGlobal',
                     classId: CACHE_CONFIG.CLASS_ID,
@@ -518,24 +569,71 @@
                     if (globalResult.success && globalResult.data) {
                         const fetchedString = typeof globalResult.data === 'string' ? globalResult.data : JSON.stringify(globalResult.data);
                         if (currentGlobalDataString !== null && currentGlobalDataString !== fetchedString) {
-                            hasChanges = true;
+                            hasGlobalChanges = true;
                         }
                     }
                 }
 
-                // 當偵測到變化，直接將畫面替換為最新資料並自動刷新
-                if (hasChanges) {
-                    if (dateKeyISO(currentDate) === dateKey) {
-                        if (cloudResult && cloudResult.data) {
-                            homeworkData = [...cloudResult.data];
-                            renderAllHomework();
+                // 3. 靜默套用變更 (無縫重繪)
+                if (hasHomeworkChanges || hasGlobalChanges) {
+                    // 保存目前的焦點狀態 (防打斷使用者輸入)
+                    const activeElement = document.activeElement;
+                    let focusedHwId = null, focusedGlobalId = null;
+                    let selectionStart = 0, selectionEnd = 0, activeField = '';
+
+                    if (editMode && activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT')) {
+                        selectionStart = activeElement.selectionStart || 0;
+                        selectionEnd = activeElement.selectionEnd || 0;
+
+                        const hwItem = activeElement.closest('.homework-item');
+                        if (hwItem) focusedHwId = hwItem.dataset.homeworkId;
+
+                        const globalItem = activeElement.closest('.global-sortable-item');
+                        if (globalItem) {
+                            focusedGlobalId = globalItem.dataset.eventId;
+                            if (activeElement.placeholder.includes('活動名稱')) activeField = 'name';
+                            else if (activeElement.type === 'date') activeField = 'date';
+                            else if (activeElement.placeholder.includes('宣導')) activeField = 'content';
                         }
-                        await loadGlobalEvents(); 
-                        showNotification('系統偵測到變更，已自動同步最新內容！', 'success');
+                    }
+
+                    // 套用 Homework 變更
+                    if (hasHomeworkChanges && dateKeyISO(currentDate) === dateKey && cloudResult.data) {
+                        homeworkData = [...cloudResult.data];
+                        renderAllHomework();
+                    }
+
+                    // 套用 Global 變更
+                    if (hasGlobalChanges) {
+                        await loadGlobalEvents(); // 內部會自動更新陣列與重繪 Editor
+                    }
+
+                    // 恢復焦點
+                    if (editMode) {
+                        if (focusedHwId) {
+                            const newTarget = document.querySelector(`[data-homework-id="${focusedHwId}"] input[type="text"]`);
+                            if (newTarget) {
+                                newTarget.focus();
+                                try { newTarget.setSelectionRange(selectionStart, selectionEnd); } catch(e){}
+                            }
+                        } else if (focusedGlobalId) {
+                            const newTargetContainer = document.querySelector(`[data-event-id="${focusedGlobalId}"]`);
+                            if (newTargetContainer) {
+                                let newTarget;
+                                if (activeField === 'name') newTarget = newTargetContainer.querySelector('input[placeholder*="活動名稱"]');
+                                else if (activeField === 'date') newTarget = newTargetContainer.querySelector('input[type="date"]');
+                                else if (activeField === 'content') newTarget = newTargetContainer.querySelector('input[placeholder*="宣導"]');
+
+                                if (newTarget) {
+                                    newTarget.focus();
+                                    try { newTarget.setSelectionRange(selectionStart, selectionEnd); } catch(e){}
+                                }
+                            }
+                        }
                     }
                 }
             } catch (error) {
-                console.error('自動更新檢查失敗:', error);
+                if (error.name !== 'AbortError') console.error('自動更新檢查失敗:', error);
             } finally {
                 isBackgroundUpdating = false;
             }
@@ -1126,14 +1224,13 @@
                 document.getElementById('addHomeworkBtn').style.display = 'flex';
                 document.getElementById('marqueeEditSection').style.display = 'block';
                 document.getElementById('sortModeIndicator').style.display = 'block';
-                renderGlobalEventsEditor(); stopBackgroundUpdate();
+                renderGlobalEventsEditor(); 
             } else {
                 document.getElementById('editIcon').textContent = '🔐'; document.getElementById('editText').textContent = '編輯模式';
                 btn.className = 'group relative w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-xl shadow-lg flex justify-center items-center space-x-2';
                 document.getElementById('addHomeworkBtn').style.display = 'none';
                 document.getElementById('marqueeEditSection').style.display = 'none';
                 document.getElementById('sortModeIndicator').style.display = 'none';
-                startBackgroundUpdate();
             }
         }
 
