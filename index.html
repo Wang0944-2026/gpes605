@@ -309,7 +309,7 @@
         
         <!-- 頁尾版本宣告 -->
         <footer class="text-center text-slate-500 text-sm font-medium mt-2 mb-6 tracking-wide">
-            大榮老師製作 &copy; 2026 | Version 1.7 (v1.7)
+            大榮老師製作 &copy; 2026 | Version 1.8 (v1.8)
         </footer>
     </div>
 
@@ -343,7 +343,7 @@
             CLASS_ID: '605',
             SHOW_SYNC_HINTS: false,
             PREFETCH_WEEKENDS: false,
-            VERSION: '1.16.0', // 升級快取，強制作廢舊有無法解析純文字的快取
+            VERSION: '1.18.0', // 升級快取，確保雙向同步雜湊碼一致
             DEBUG: true, 
             BACKGROUND_UPDATE_INTERVAL: 5000, 
             BACKGROUND_UPDATE_ENABLED: true 
@@ -578,7 +578,7 @@
                 if (hasHomeworkChanges || hasGlobalChanges) {
                     // 保存目前的焦點狀態 (防打斷使用者輸入)
                     const activeElement = document.activeElement;
-                    let focusedHwId = null, focusedGlobalId = null;
+                    let focusedHwId = null, focusedGlobalId = null, focusedHwIndex = -1;
                     let selectionStart = 0, selectionEnd = 0, activeField = '';
 
                     if (editMode && activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT')) {
@@ -586,7 +586,10 @@
                         selectionEnd = activeElement.selectionEnd || 0;
 
                         const hwItem = activeElement.closest('.homework-item');
-                        if (hwItem) focusedHwId = hwItem.dataset.homeworkId;
+                        if (hwItem) {
+                            focusedHwId = hwItem.dataset.homeworkId;
+                            focusedHwIndex = Array.from(document.querySelectorAll('.homework-item')).indexOf(hwItem);
+                        }
 
                         const globalItem = activeElement.closest('.global-sortable-item');
                         if (globalItem) {
@@ -611,7 +614,11 @@
                     // 恢復焦點
                     if (editMode) {
                         if (focusedHwId) {
-                            const newTarget = document.querySelector(`[data-homework-id="${focusedHwId}"] input[type="text"]`);
+                            let newTarget = document.querySelector(`[data-homework-id="${focusedHwId}"] input[type="text"]`);
+                            if (!newTarget && focusedHwIndex > -1) {
+                                const items = document.querySelectorAll('.homework-item input[type="text"]');
+                                if (items[focusedHwIndex]) newTarget = items[focusedHwIndex];
+                            }
                             if (newTarget) {
                                 newTarget.focus();
                                 try { newTarget.setSelectionRange(selectionStart, selectionEnd); } catch(e){}
@@ -1177,7 +1184,11 @@
                 const legacyData = homeworkData.map(hw => ({ text: hw.content, subject: hw.subject, confirmed: hw.status === 'confirmed', timestamp: hw.timestamp }));
                 try { localStorage.setItem(dateKey, JSON.stringify(legacyData)); } catch (e) {}
                 const result = await saveToGoogleSheets(dateKey, legacyData);
-                if (result.success) writeToCache(dateKey, normalizeHomeworkData(legacyData));
+                if (result.success) {
+                    // 確保存檔時寫入快取的 Hash 與雲端計算方式完全一致，避免無意義的重繪打斷輸入
+                    const stableHash = calculateStableHash(legacyData);
+                    writeToCache(dateKey, normalizeHomeworkData(legacyData), stableHash);
+                }
                 return result;
             } finally { isSaving = false; }
         }
