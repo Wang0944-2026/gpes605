@@ -347,7 +347,9 @@
         class HomeworkItem {
             constructor(id, subject, content, status = 'editing') {
                 this.id = id || `hw_${Date.now()}`;
-                this.subject = subject; this.content = content; this.status = status;
+                this.subject = subject || '國語'; 
+                this.content = content || '';
+                this.status = status;
                 this.timestamp = new Date().toISOString();
             }
         }
