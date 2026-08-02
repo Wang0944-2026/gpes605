@@ -202,7 +202,7 @@
         </div>
 
         <!-- 跑馬燈倒數日曆 -->
-        <div id="countdownMarquee" style="display: none;" class="max-w-4xl mx-auto mt-2 mb-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl shadow-sm py-1.5 px-2 sm:px-4 marquee-wrapper cursor-default" title="將滑鼠移至上方可暫停跑馬燈">
+        <div id="countdownMarquee" style="display: none;" class="max-w-4xl mx-auto mt-2 mb-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl shadow-sm hover:shadow-md py-1.5 px-2 sm:px-4 marquee-wrapper cursor-pointer hover:bg-yellow-100 hover:border-yellow-300 transition-all duration-300" title="點擊查看所有跑馬燈與活動" onclick="showMarqueeList()">
             <div class="text-base sm:text-lg font-bold text-yellow-800 w-full flex" id="marqueeText">
                 <!-- 跑馬燈內容會由 JS 動態寫入並套用速度設定 -->
             </div>
@@ -309,7 +309,7 @@
         
         <!-- 頁尾版本宣告 -->
         <footer class="text-center text-slate-500 text-sm font-medium mt-2 mb-6 tracking-wide">
-            大榮老師製作 &copy; 2026 | Version 1.2 (v1.2)
+            大榮老師製作 &copy; 2026 | Version 1.4 (v1.4)
         </footer>
     </div>
 
@@ -521,37 +521,23 @@
                     }
                 }
 
+                // 當偵測到變化，直接將畫面替換為最新資料並自動刷新
                 if (hasChanges) {
-                    showBackgroundUpdateNotification();
+                    if (dateKeyISO(currentDate) === dateKey) {
+                        if (cloudResult && cloudResult.data) {
+                            homeworkData = [...cloudResult.data];
+                            renderAllHomework();
+                        }
+                        await loadGlobalEvents(); 
+                        showNotification('系統偵測到變更，已自動同步最新內容！', 'success');
+                    }
                 }
             } catch (error) {
+                console.error('自動更新檢查失敗:', error);
             } finally {
                 isBackgroundUpdating = false;
             }
         }
-
-        function showBackgroundUpdateNotification() {
-            if (document.getElementById('backgroundUpdateNotification')) return;
-            const notification = document.createElement('div');
-            notification.id = 'backgroundUpdateNotification';
-            notification.className = 'fixed top-20 right-4 bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded-lg shadow-lg z-50 max-w-sm';
-            
-            notification.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-2xl">🔄</span>
-                        <div class="font-bold text-sm sm:text-base">資料已有更新，請重整畫面</div>
-                    </div>
-                    <button onclick="applyBackgroundUpdate()" class="ml-3 shrink-0 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">重整畫面</button>
-                </div>
-                <button onclick="dismissBackgroundUpdate()" class="absolute top-1 right-2 text-blue-400 hover:text-blue-600 text-xl font-bold leading-none">×</button>
-            `;
-            document.body.appendChild(notification);
-            setTimeout(dismissBackgroundUpdate, 15000);
-        }
-
-        async function applyBackgroundUpdate() { dismissBackgroundUpdate(); await forceReloadHomework(); }
-        function dismissBackgroundUpdate() { document.getElementById('backgroundUpdateNotification')?.remove(); }
 
         function startBackgroundUpdate() {
             if (!CACHE_CONFIG.BACKGROUND_UPDATE_ENABLED) return;
@@ -1322,6 +1308,57 @@
             
             currentDate = d; document.querySelector('.date-picker-overlay')?.remove();
             showNotification('正在載入所選日期...', 'success'); await updateDateDisplay();
+        }
+
+        // ================= 跑馬燈列表視窗 =================
+        function showMarqueeList() {
+            if (!globalEvents || globalEvents.length === 0) return;
+
+            const activeEvents = globalEvents.filter(ev => ev.enabled !== false);
+            if (activeEvents.length === 0) return;
+
+            let listHtml = '';
+            const stripTime = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            const tDay = stripTime(currentDate);
+
+            activeEvents.forEach(ev => {
+                if (ev.type === 'message' && ev.content?.trim()) {
+                    listHtml += `<div class="p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200 mb-3 shadow-sm flex items-start gap-3 transition hover:shadow-md"><span class="text-xl sm:text-2xl mt-0.5 shrink-0">📢</span><span class="text-gray-800 font-medium text-lg sm:text-xl">${ev.content}</span></div>`;
+                } else if (ev.type === 'countdown' && ev.date && ev.name) {
+                    const [y, m, d] = ev.date.split('-');
+                    const evDate = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+                    const eDay = stripTime(evDate);
+                    
+                    if (eDay >= tDay) {
+                        const days = Math.floor((eDay - tDay) / 86400000);
+                        let msg = days === 0 
+                            ? `🌟 <span class="font-bold text-red-600">【${ev.name}】</span>就是今天！祝大家順利！ 💪` 
+                            : `距離<span class="font-bold mx-1">【${ev.name}】</span>還剩下 <span class="text-2xl sm:text-3xl text-red-500 font-black mx-1.5">${days}</span> 天！`;
+                        listHtml += `<div class="p-3 sm:p-4 bg-yellow-50 rounded-xl border border-yellow-300 mb-3 shadow-sm flex items-start gap-3 transition hover:shadow-md"><span class="text-xl sm:text-2xl mt-0.5 shrink-0">📅</span><span class="text-yellow-900 font-medium text-lg sm:text-xl leading-relaxed">${msg}</span></div>`;
+                    }
+                }
+            });
+
+            if (!listHtml) {
+                listHtml = `<div class="text-center text-gray-500 py-8 text-lg font-medium">目前沒有正在顯示的項目 📭</div>`;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4 marquee-list-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); }; // 點擊黑色背景關閉視窗
+
+            overlay.innerHTML = `
+                <div class="bg-white w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden">
+                    <div class="p-4 sm:p-5 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-yellow-50 to-orange-50">
+                        <h3 class="text-xl sm:text-2xl font-bold text-yellow-900 flex items-center gap-2"><span class="text-2xl">📋</span> 所有跑馬燈與活動</h3>
+                        <button onclick="document.querySelector('.marquee-list-overlay').remove()" class="text-gray-400 hover:text-gray-800 bg-white hover:bg-gray-100 rounded-full w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center transition-colors shadow-sm text-2xl leading-none">&times;</button>
+                    </div>
+                    <div class="p-4 sm:p-6 overflow-y-auto flex-1 bg-white">
+                        ${listHtml}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
         }
 
         window.addEventListener('load', () => {
