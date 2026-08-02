@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>上岐601聯絡簿</title>
+    <title>僑平國小 605 聯絡簿</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
@@ -24,14 +24,7 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        @keyframes dialogFadeIn {
-            from { opacity: 0; transform: scale(0.95) translateY(-10px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .events-dialog-overlay .bg-white {
-            animation: dialogFadeIn 0.2s ease-out forwards;
-        }
-        .saving-overlay, .date-picker-overlay, .password-dialog-overlay, .events-dialog-overlay {
+        .saving-overlay, .date-picker-overlay, .password-dialog-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.5);
@@ -173,21 +166,13 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-2 sm:p-4 flex flex-col relative">
-    <!-- 左上角雲端圖片 (附帶學校超連結，取消固定懸浮與防點擊) -->
-    <a href="https://sces.km.edu.tw/" target="_blank" class="absolute top-2 left-2 sm:top-4 sm:left-4 z-20 hover:opacity-80 transition-opacity" title="前往上岐國小校網">
-        <img src="https://drive.google.com/thumbnail?id=1gyziBxjBBTP7PzNf_tRqbRO6yr3pIWo7&sz=w1000" referrerpolicy="no-referrer" alt="左上角裝飾圖" class="w-16 sm:w-20 md:w-24 h-auto object-contain drop-shadow-md">
-    </a>
-    
-    <!-- 右下角手寫簽名檔 (底層) -->
-    <img src="https://drive.google.com/thumbnail?id=1SOzUZImsv_Hi152LoQ9K6V4hsVRPzxwb&sz=w1000" referrerpolicy="no-referrer" alt="老師簽名" class="absolute sm:fixed bottom-2 right-2 sm:bottom-4 sm:right-4 w-8 sm:w-12 md:w-14 h-auto object-contain z-10 opacity-85 pointer-events-none drop-shadow-sm">
-
-    <div class="max-w-4xl mx-auto w-full flex-grow">
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-2 sm:p-4">
+    <div class="max-w-4xl mx-auto">
         <!-- 標題與頂部資訊 -->
         <div class="mb-4 text-center">
             <h1 class="flex items-center justify-center text-2xl sm:text-3xl md:text-4xl font-bold text-indigo-800 mb-2 md:mb-3">
-                <img src="上岐國小_校徽_202409_彩色.jpg" alt="上岐校徽" class="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 mr-2 object-contain" onerror="this.onerror=null; this.outerHTML='<span class=\'mr-2\'>📚</span>';">
-                上岐國小601聯絡簿
+                <img src="上岐國小_校徽_202409_彩色.jpg" alt="僑平校徽" class="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 mr-2 object-contain" onerror="this.onerror=null; this.outerHTML='<span class=\'mr-2\'>📚</span>';">
+                僑平國小 605 聯絡簿
             </h1>
             <div class="text-sm sm:text-base md:text-lg font-medium flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap" id="dateInfo">
                 <span class="bg-red-100 text-red-800 px-2 sm:px-3 py-1 rounded-full" id="semesterInfo">114學年第一學期</span>
@@ -217,7 +202,7 @@
         </div>
 
         <!-- 跑馬燈倒數日曆 -->
-        <div id="countdownMarquee" style="display: none;" class="max-w-4xl mx-auto mt-2 mb-4 bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-200 rounded-xl shadow-sm py-1.5 px-2 sm:px-4 marquee-wrapper cursor-pointer transition-colors" title="點擊查看所有活動資訊 (將滑鼠移至上方可暫停跑馬燈)" onclick="showAllEventsDialog()">
+        <div id="countdownMarquee" style="display: none;" class="max-w-4xl mx-auto mt-2 mb-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl shadow-sm py-1.5 px-2 sm:px-4 marquee-wrapper cursor-default" title="將滑鼠移至上方可暫停跑馬燈">
             <div class="text-base sm:text-lg font-bold text-yellow-800 w-full flex" id="marqueeText">
                 <!-- 跑馬燈內容會由 JS 動態寫入並套用速度設定 -->
             </div>
@@ -323,13 +308,6 @@
         </div>
     </div>
 
-    <!-- 頁尾版權宣告 -->
-    <div class="w-full flex justify-center mt-4 sm:mt-6 pb-2 z-10 relative pointer-events-none">
-        <div class="bg-white/60 backdrop-blur-md px-5 py-2 rounded-full shadow-md border border-white/50 text-gray-500 font-extrabold text-xs sm:text-sm tracking-widest text-center">
-            大榮老師製作 © 2026 | Version 10.3 (v10.3)
-        </div>
-    </div>
-
     <script>
         let currentDate = new Date();
         let homeworkCounter = 0;
@@ -337,7 +315,6 @@
         let isSaving = false;
         let homeworkData = []; 
         
-        // 全域跑馬燈設定與狀態
         let globalConfig = { marqueeSpeed: 200 }; 
         let globalEvents = [
             { id: 'e1', type: 'countdown', name: '第一次定期評量 (4/16-17)', date: '2026-04-16', enabled: true },
@@ -348,21 +325,22 @@
         
         let currentGlobalDataString = null;
 
-        const firstSemesterStart = new Date('2025-09-01');
-        const firstSemesterEnd = new Date('2026-01-20');
-        const secondSemesterStart = new Date('2026-02-11');
-        const secondSemesterEnd = new Date('2026-08-31');
+        const firstSemesterStart = new Date('2026-08-31');
+        const firstSemesterEnd = new Date('2027-01-20');
+        const secondSemesterStart = new Date('2027-02-11');
+        const secondSemesterEnd = new Date('2027-06-30');
 
+        // 請確保此處為最新佈署的 GAS 網址 (記得要有建立新版本喔！)
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXXyyN1nib4ovwXmmEVzMYAS9j3X370DhRPLkXFNzQD16aYRi1r-bg5giOCc7nZPFhiQ/exec';
 
         const CACHE_CONFIG = {
             TTL: 12 * 60 * 60 * 1000, 
-            CLASS_ID: '601',
+            CLASS_ID: '605', // 更新 CLASS_ID 為 605 避免與 601 衝突
             SHOW_SYNC_HINTS: false,
             PREFETCH_WEEKENDS: false,
-            VERSION: '1.13.0', // 【更新】強制清空快取，確保所有設定重新抓取
+            VERSION: '1.14.0', // 升級快取以對應新版後端
             DEBUG: true, 
-            BACKGROUND_UPDATE_INTERVAL: 10000, // 改為 10000 (10秒自動更新)
+            BACKGROUND_UPDATE_INTERVAL: 5000, 
             BACKGROUND_UPDATE_ENABLED: true 
         };
 
@@ -373,7 +351,6 @@
         let isBackgroundUpdating = false;
         let lastBackgroundUpdate = 0;
 
-        // 強制維持標準 YYYY-MM-DD
         function dateKeyISO(d) {
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -513,19 +490,15 @@
             lastBackgroundUpdate = now;
             try {
                 let hasChanges = false;
-                let newHomeworkData = null;
 
-                // 1. 檢查作業資料
                 const dateKey = dateKeyISO(currentDate);
                 const cacheItem = getFromMemoryCache(dateKey) || getFromLocalStorage(dateKey);
-                const cloudResult = await loadFromCloudWithCache(dateKey, true); // true = 靜默預先載入
+                const cloudResult = await loadFromCloudWithCache(dateKey, true);
                 
-                if (cloudResult && cloudResult.hash && (!cacheItem || cacheItem.hash !== cloudResult.hash)) {
+                if (cacheItem && cloudResult.hash && cacheItem.hash !== cloudResult.hash) {
                     hasChanges = true;
-                    newHomeworkData = cloudResult.data;
                 }
 
-                // 2. 檢查全域活動/跑馬燈資料
                 const params = new URLSearchParams({
                     action: 'loadGlobal',
                     classId: CACHE_CONFIG.CLASS_ID,
@@ -539,38 +512,41 @@
                         const fetchedString = typeof globalResult.data === 'string' ? globalResult.data : JSON.stringify(globalResult.data);
                         if (currentGlobalDataString !== null && currentGlobalDataString !== fetchedString) {
                             hasChanges = true;
-                            currentGlobalDataString = fetchedString;
-                            
-                            const parsedData = parseRawData(globalResult.data);
-                            const safeObj = (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) ? parsedData : {};
-                            if (safeObj.events) globalEvents = safeObj.events;
-                            if (safeObj.config) {
-                                globalConfig = safeObj.config;
-                                let speed = parseInt(globalConfig.marqueeSpeed, 10);
-                                globalConfig.marqueeSpeed = (isNaN(speed) || speed < 150) ? 200 : (speed > 400 ? 400 : speed);
-                            }
                         }
                     }
                 }
 
-                // 3. 如果有更新，直接套用並重新渲染畫面
-                if (hasChanges && !editMode) {
-                    if (newHomeworkData) {
-                        homeworkData = [...newHomeworkData];
-                        renderAllHomework();
-                    }
-                    updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
-                    showNotification('資料已在背景自動更新 ✨', 'success');
+                if (hasChanges) {
+                    showBackgroundUpdateNotification();
                 }
             } catch (error) {
-                // 過濾掉因為 15 秒超時而主動中斷連線 (AbortError) 的無害錯誤
-                if (error.name !== 'AbortError' && !String(error.message).includes('aborted')) {
-                    console.error('背景自動更新失敗:', error);
-                }
             } finally {
                 isBackgroundUpdating = false;
             }
         }
+
+        function showBackgroundUpdateNotification() {
+            if (document.getElementById('backgroundUpdateNotification')) return;
+            const notification = document.createElement('div');
+            notification.id = 'backgroundUpdateNotification';
+            notification.className = 'fixed top-20 right-4 bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded-lg shadow-lg z-50 max-w-sm';
+            
+            notification.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-2xl">🔄</span>
+                        <div class="font-bold text-sm sm:text-base">資料已有更新，請重整畫面</div>
+                    </div>
+                    <button onclick="applyBackgroundUpdate()" class="ml-3 shrink-0 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">重整畫面</button>
+                </div>
+                <button onclick="dismissBackgroundUpdate()" class="absolute top-1 right-2 text-blue-400 hover:text-blue-600 text-xl font-bold leading-none">×</button>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(dismissBackgroundUpdate, 15000);
+        }
+
+        async function applyBackgroundUpdate() { dismissBackgroundUpdate(); await forceReloadHomework(); }
+        function dismissBackgroundUpdate() { document.getElementById('backgroundUpdateNotification')?.remove(); }
 
         function startBackgroundUpdate() {
             if (!CACHE_CONFIG.BACKGROUND_UPDATE_ENABLED) return;
@@ -988,32 +964,23 @@
             setTimeout(() => { n.style.opacity = '0'; setTimeout(() => n.remove(), 300); }, 4000);
         }
 
-        // ================= 【防線一併啟動】 =================
+        // ================= 【核心與後端對接傳送】 =================
         async function saveToGoogleSheets(dateKey, data) {
             try {
                 const formData = new FormData();
                 formData.append('action', 'save');
                 
-                // 【A 欄防線】：強制單引號，確保試算表 100% 收編為純文字 (保留之前成功解法)
-                formData.append('dateKey', "'" + dateKey); 
+                // 【前端不干預】交由後端的 GAS 處理純文字鎖定 (.setNumberFormat("@"))
+                formData.append('dateKey', dateKey); 
                 
                 formData.append('classId', CACHE_CONFIG.CLASS_ID);
                 formData.append('data', JSON.stringify(data));
                 formData.append('token', 'homework2025');
                 
-                // 【D 欄防線】：精準組裝字串 + 單引號，強制拒絕 Google Sheets 轉成下午格式！
-                const now = new Date();
-                const pad = n => String(n).padStart(2, '0');
-                const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-                
-                // 保留原始變數避免後端錯誤，但新增 updatedAt 欄位讓後端抓取
-                formData.append('timestamp', "'" + ts); 
-                
-                // 【E 欄防線】：地毯式變數名轟炸，確保後端絕對接得到設備資訊！
+                // 【前端明確送出設備資訊】
+                // 即便後端現在可以自己抓取，前端明確送出確保雙向驗證萬無一失。
                 const deviceStr = navigator.userAgent || "Unknown Browser";
                 formData.append('userAgent', deviceStr);
-                formData.append('user_agent', deviceStr);
-                formData.append('UserAgent', deviceStr);
 
                 const response = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: formData, cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1084,23 +1051,20 @@
             try {
                 let cloudResult = await loadFromCloudWithCache(dateKey);
                 
+                // 跨裝置舊資料救援機制 (保留以防萬一)
                 if (!cloudResult || !cloudResult.data || cloudResult.data.length === 0) {
-                    const padMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
-                    const padDay = String(currentDate.getDate()).padStart(2, '0');
                     const unpadMonth = currentDate.getMonth() + 1;
                     const unpadDay = currentDate.getDate();
-                    
-                    const paddedKey = `${currentDate.getFullYear()}-${padMonth}-${padDay}`;
                     const unpaddedKey = `${currentDate.getFullYear()}-${unpadMonth}-${unpadDay}`;
                     
-                    let targetFallback = (dateKey === paddedKey) ? unpaddedKey : paddedKey;
-                    
-                    try {
-                        const fallbackResult = await loadFromCloudWithCache(targetFallback, true);
-                        if (fallbackResult && fallbackResult.data && fallbackResult.data.length > 0) {
-                            cloudResult = fallbackResult;
-                        }
-                    } catch(e) {}
+                    if (unpaddedKey !== dateKey) {
+                        try {
+                            const fallbackResult = await loadFromCloudWithCache(unpaddedKey, true);
+                            if (fallbackResult && fallbackResult.data && fallbackResult.data.length > 0) {
+                                cloudResult = fallbackResult;
+                            }
+                        } catch(e) {}
+                    }
                 }
                 
                 if (dateKeyISO(currentDate) !== dateKey) return; 
@@ -1127,58 +1091,7 @@
             } finally { isSaving = false; }
         }
 
-        async function loadHomework() { 
-            await loadHomeworkWithSWR(dateKeyISO(currentDate)); 
-            prefetchAdjacentDays(); // 預先載入前後天資料以加快切換速度
-        }
-
-        async function prefetchAdjacentDays() {
-            const getValidDay = (date, step) => {
-                let d = new Date(date);
-                d.setDate(d.getDate() + step);
-                while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + step);
-                return d;
-            };
-
-            let daysToPrefetch = [];
-            let currPrev = new Date(currentDate);
-            let currNext = new Date(currentDate);
-
-            for (let i = 0; i < 5; i++) {
-                currPrev = getValidDay(currPrev, -1);
-                if (currPrev >= firstSemesterStart) daysToPrefetch.push(new Date(currPrev));
-
-                currNext = getValidDay(currNext, 1);
-                if (currNext <= secondSemesterEnd) daysToPrefetch.push(new Date(currNext));
-            }
-
-            // 循序靜默發送 API 請求寫入 Cache，避免併發過高被 Apps Script 阻擋
-            for (let d of daysToPrefetch) {
-                try {
-                    await loadFromCloudWithCache(dateKeyISO(d), true);
-                } catch (e) {}
-            }
-        }
-
-        async function autoSaveBeforeNavigate() {
-            if (!editMode) return;
-            homeworkData.forEach(hw => {
-                if (hw.status === 'editing') {
-                    if (hw.content.trim()) hw.status = 'confirmed';
-                    else homeworkData = homeworkData.filter(h => h.id !== hw.id);
-                }
-            });
-            showSyncStatus(true, '自動儲存中...');
-            try {
-                await saveHomeworkInstantly();
-                await saveGlobalEventsInstantly();
-                showNotification('已自動儲存當前變更', 'success');
-            } catch (e) {
-                showNotification('自動儲存失敗，請確認網路狀態', 'error');
-            } finally {
-                showSyncStatus(false);
-            }
-        }
+        async function loadHomework() { await loadHomeworkWithSWR(dateKeyISO(currentDate)); }
 
         async function toggleEditMode() {
             if (!editMode) { showCustomPasswordDialog(); return; }
@@ -1312,8 +1225,8 @@
                     const tDay = new Date(new Date(currentDayTime).getFullYear(), new Date(currentDayTime).getMonth(), new Date(currentDayTime).getDate()).getTime();
                     if (eDay >= tDay) {
                         const days = Math.floor((eDay - tDay) / 86400000);
-                        if (days === 0) msgs.push(`📅 🌟 提醒：【${ev.name}】就是今天！祝大家順利！ 💪 🌟`);
-                        else msgs.push(`📅 提醒：距離【${ev.name}】還剩下 <span class="text-2xl text-red-500 font-black mx-2">${days}</span> 天！`);
+                        if (days === 0) msgs.push(`📢 🌟 提醒：【${ev.name}】就是今天！祝大家順利！ 💪 🌟`);
+                        else msgs.push(`📢 提醒：距離【${ev.name}】還剩下 <span class="text-2xl text-red-500 font-black mx-2">${days}</span> 天！`);
                     }
                 }
             }
@@ -1343,63 +1256,6 @@
             } else { countdownMarquee.style.display = 'none'; }
         }
 
-        function showAllEventsDialog() {
-            const currentDayTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime();
-            let messagesHtml = '';
-            let countdownsHtml = '';
-            let hasEvents = false;
-
-            for (const ev of globalEvents) {
-                if (ev.enabled === false) continue;
-                
-                if (ev.type === 'message' && ev.content?.trim()) {
-                    hasEvents = true;
-                    messagesHtml += `<div class="p-3 sm:p-4 bg-blue-50 text-blue-800 rounded-xl mb-3 text-left shadow-sm border border-blue-100 flex items-center min-w-fit"><span class="mr-3 text-2xl shrink-0">📢</span> <span class="leading-relaxed font-medium whitespace-nowrap text-sm sm:text-base md:text-lg">${ev.content}</span></div>`;
-                } else if (ev.type === 'countdown' && ev.date && ev.name) {
-                    const [y, m, d] = ev.date.split('-');
-                    const evDate = new Date(parseInt(y), parseInt(m)-1, parseInt(d), 12, 0, 0).getTime();
-                    const eDay = new Date(new Date(evDate).getFullYear(), new Date(evDate).getMonth(), new Date(evDate).getDate()).getTime();
-                    const tDay = new Date(new Date(currentDayTime).getFullYear(), new Date(currentDayTime).getMonth(), new Date(currentDayTime).getDate()).getTime();
-                    
-                    if (eDay >= tDay) {
-                        hasEvents = true;
-                        const days = Math.floor((eDay - tDay) / 86400000);
-                        if (days === 0) {
-                            countdownsHtml += `<div class="p-3 sm:p-4 bg-red-50 text-red-800 rounded-xl mb-3 text-left shadow-sm border border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-fit"><div class="flex items-center"><span class="mr-3 text-2xl shrink-0">🌟</span> <span class="font-bold whitespace-nowrap text-sm sm:text-base md:text-lg">${ev.name}</span></div><span class="font-black bg-red-200 px-3 py-1.5 rounded-lg text-center sm:text-right text-red-700 animate-pulse w-fit sm:w-auto shadow-sm shrink-0 whitespace-nowrap">就是今天！</span></div>`;
-                        } else {
-                            countdownsHtml += `<div class="p-3 sm:p-4 bg-yellow-50 text-yellow-800 rounded-xl mb-3 text-left shadow-sm border border-yellow-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-fit"><div class="flex flex-col sm:flex-row sm:items-center"><div class="flex items-center"><span class="mr-3 text-2xl shrink-0">📅</span> <span class="font-bold whitespace-nowrap text-sm sm:text-base md:text-lg">${ev.name}</span></div> <span class="text-sm font-medium text-yellow-600 sm:ml-3 ml-9 sm:mt-0 mt-1 bg-yellow-100 px-2 py-0.5 rounded shrink-0 w-fit">${ev.date.replace(/-/g, '/')}</span></div><div class="whitespace-nowrap sm:text-right ml-9 sm:ml-0 font-medium bg-white px-3 py-1.5 rounded-lg shadow-sm border border-yellow-100 shrink-0">倒數 <span class="text-2xl text-red-500 font-black mx-1">${days}</span> 天</div></div>`;
-                        }
-                    }
-                }
-            }
-            
-            let htmlList = messagesHtml + countdownsHtml;
-
-            if (!hasEvents) {
-                htmlList = '<div class="text-gray-500 py-10 text-center bg-gray-50 rounded-xl border border-gray-200 min-w-full"><span class="text-5xl block mb-3 opacity-50">🎈</span> <p class="font-medium text-lg">目前沒有進行中的活動或訊息</p></div>';
-            }
-
-            const overlay = document.createElement('div');
-            overlay.className = 'events-dialog-overlay';
-            overlay.innerHTML = `
-                <div class="bg-white p-5 sm:p-6 rounded-2xl shadow-2xl max-w-3xl w-full mx-4 max-h-[85vh] flex flex-col overflow-hidden">
-                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 shrink-0">
-                        <h3 class="text-xl sm:text-2xl font-bold text-gray-800 flex items-center"><span class="mr-2 text-indigo-500">📋</span> 活動資訊一覽</h3>
-                        <button onclick="this.closest('.events-dialog-overlay').remove()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1.5 transition-colors focus:outline-none shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
-                    <div class="overflow-y-auto overflow-x-auto flex-1 pr-1 pb-2" style="scrollbar-width: thin;">
-                        ${htmlList}
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-gray-100 shrink-0">
-                        <button onclick="document.querySelector('.events-dialog-overlay').remove()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl transition-colors focus:outline-none">關閉視窗</button>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-        }
-
         function updateDateDisplaySync() {
             const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
             let semInfo = '', weekNum = 1;
@@ -1407,14 +1263,14 @@
             const curr = stripTime(currentDate), s1Start = stripTime(firstSemesterStart), s1End = stripTime(firstSemesterEnd), s2Start = stripTime(secondSemesterStart), s2End = stripTime(secondSemesterEnd);
 
             if (curr >= s1Start && curr <= s1End) {
-                semInfo = '114學年第一學期';
-                weekNum = Math.max(1, Math.min(22, Math.floor((curr - new Date(2025, 7, 31).getTime()) / 86400000 / 7) + 1));
+                semInfo = '115學年第一學期';
+                weekNum = Math.max(1, Math.min(21, Math.floor((curr - new Date(2026, 7, 30).getTime()) / 86400000 / 7) + 1));
             } else if (curr >= s2Start && curr <= s2End) {
-                semInfo = '114學年第二學期';
-                weekNum = Math.max(1, Math.min(22, Math.floor((curr - new Date(2026, 1, 8).getTime()) / 86400000 / 7) + 1));
-            } else if (curr < s1Start) { semInfo = '114學年第一學期'; } 
-            else if (curr > s1End && curr < s2Start) { semInfo = '114學年寒假'; } 
-            else { semInfo = '114學年暑假'; }
+                semInfo = '115學年第二學期';
+                weekNum = Math.max(1, Math.min(21, Math.floor((curr - new Date(2027, 1, 7).getTime()) / 86400000 / 7) + 1));
+            } else if (curr < s1Start) { semInfo = '115學年暑假'; } 
+            else if (curr > s1End && curr < s2Start) { semInfo = '115學年寒假'; } 
+            else { semInfo = '115學年暑假'; }
 
             document.getElementById('semesterInfo').textContent = semInfo;
             document.getElementById('weekInfo').textContent = `第${weekNum}週`;
@@ -1430,29 +1286,20 @@
         }
 
         let navLocked = false;
-        async function moveDay(step) {
-            if (navLocked) return; navLocked = true;
-            if (editMode) await autoSaveBeforeNavigate();
-            
+        function moveDay(step) {
+            if (navLocked) return; navLocked = true; setTimeout(() => navLocked = false, 300);
             do {
                 currentDate.setDate(currentDate.getDate() + step);
                 if (currentDate < firstSemesterStart) { currentDate = new Date(firstSemesterStart); break; }
                 if (currentDate > secondSemesterEnd) { currentDate = new Date(secondSemesterEnd); break; }
             } while (currentDate.getDay() === 0 || currentDate.getDay() === 6);
-            
             updateDateDisplay();
-            setTimeout(() => navLocked = false, 300);
         }
-        async function previousDay() { await moveDay(-1); }
-        async function nextDay() { await moveDay(1); }
-        
-        async function today() {
-            if (navLocked) return; navLocked = true;
-            if (editMode) await autoSaveBeforeNavigate();
-            
-            currentDate = new Date(); 
-            updateDateDisplay();
-            setTimeout(() => navLocked = false, 300);
+        function previousDay() { moveDay(-1); }
+        function nextDay() { moveDay(1); }
+        function today() {
+            if (navLocked) return; navLocked = true; setTimeout(() => navLocked = false, 300);
+            currentDate = new Date(); updateDateDisplay();
         }
 
         function showDatePicker() {
@@ -1467,8 +1314,6 @@
             const d = new Date(input.value + 'T12:00:00');
             if (d < firstSemesterStart || d > secondSemesterEnd) return showNotification('所選日期超出學期範圍！', 'warning');
             if (d.getDay() === 0 || d.getDay() === 6) return showNotification('週末沒有上課，請選擇平日！', 'warning');
-            
-            if (editMode) await autoSaveBeforeNavigate();
             
             currentDate = d; document.querySelector('.date-picker-overlay')?.remove();
             showNotification('正在載入所選日期...', 'success'); await updateDateDisplay();
