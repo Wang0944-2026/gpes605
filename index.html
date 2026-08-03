@@ -12,6 +12,7 @@
         .homework-item:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
         .sync-indicator { animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
         .saving-overlay, .date-picker-overlay, .password-dialog-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;
@@ -25,10 +26,10 @@
             text-align: center; margin-bottom: 16px; outline: none; transition: border-color 0.2s;
         }
         .date-picker-input:focus { border-color: #6366f1; }
+        
         .homework-confirmed { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px solid #10b981; }
         .homework-editing { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); border: 2px solid #6b7280; }
         
-        /* 拖拽排序樣式 */
         .sortable-item { cursor: move; transition: all 0.2s ease; }
         .sortable-item:hover { transform: translateY(-1px); }
         .sortable-item.dragging { opacity: 0.5; transform: rotate(2deg); z-index: 1000; }
@@ -47,7 +48,6 @@
         .global-drag-handle:hover { color: #ca8a04; }
         .global-drag-handle:active { cursor: grabbing; }
         
-        /* 跑馬燈動畫 */
         @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .marquee-wrapper { overflow: hidden; display: flex; align-items: center; width: 100%; }
         .marquee-content {
@@ -56,6 +56,10 @@
         }
         .marquee-wrapper:hover .marquee-content { animation-play-state: paused; }
         .marquee-item-group { display: flex; align-items: center; flex-shrink: 0; min-width: 100%; }
+        
+        /* Custom Toast Notification */
+        .toast-enter { transform: translateY(0); opacity: 1; }
+        .toast-leave { transform: translateY(-20px); opacity: 0; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-2 sm:p-4 md:p-6">
@@ -89,7 +93,7 @@
         </div>
 
         <div id="countdownMarquee" style="display: none;" class="max-w-4xl mx-auto mt-2 mb-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl shadow-sm py-2 px-3 sm:px-5 marquee-wrapper cursor-pointer hover:bg-yellow-100 transition-colors" title="點擊查看所有跑馬燈" onclick="showMarqueeList()">
-            <div class="text-base sm:text-lg md:text-xl font-bold text-yellow-800 w-full flex" id="marqueeText"></div>
+            <div class="text-base sm:text-lg md:text-xl font-bold text-yellow-800 w-full flex marquee-content" id="marqueeText"></div>
         </div>
 
         <div class="bg-white rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 mb-6">
@@ -98,7 +102,10 @@
                     <div class="flex items-center flex-wrap gap-2">
                         <span class="text-2xl sm:text-3xl shrink-0">📝</span>
                         <h2 id="homeworkTitle" class="font-bold text-gray-800 text-xl sm:text-2xl md:text-3xl">今日作業</h2>
-                        <!-- 靜默更新：不再顯示 syncIndicator 區塊 -->
+                        <button onclick="manualRefresh()" class="ml-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center shadow-sm border border-blue-200" title="重新整理最新資料">
+                            <span id="refreshIcon" class="mr-1">🔄</span>
+                            <span id="refreshText">重新整理</span>
+                        </button>
                     </div>
                     
                     <button id="editModeBtn" onclick="toggleEditMode()" class="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform sm:hover:scale-105 flex justify-center items-center space-x-2">
@@ -135,14 +142,26 @@
                 <div id="marqueeEditSection" class="mt-8 pt-6 border-t-2 border-gray-100" style="display: none;">
                     <div class="flex items-center mb-4">
                         <span class="text-xl sm:text-2xl shrink-0 mr-2">📢</span>
-                        <h2 class="font-bold text-gray-800 text-lg sm:text-xl md:text-2xl">跑馬燈 / 活動設定</h2>
+                        <h2 class="font-bold text-gray-800 text-lg sm:text-xl md:text-2xl">全域設定與跑馬燈</h2>
                     </div>
+                    
+                    <!-- Password Modification Block -->
+                    <div class="mb-4 bg-purple-50 p-4 rounded-xl border border-purple-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div class="font-medium text-purple-800 flex items-center"><span class="mr-2">🔑</span> 系統密碼設定</div>
+                        <div class="flex items-center gap-3 w-full sm:w-auto">
+                            <input type="text" id="systemPasswordInput" placeholder="請輸入新密碼" class="flex-1 sm:w-40 h-10 bg-white border border-purple-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-400 outline-none text-center font-medium text-purple-900">
+                            <button onclick="updateSystemPassword()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap shadow-sm">更新密碼</button>
+                        </div>
+                    </div>
+
+                    <!-- Marquee Speed Block -->
                     <div class="mb-4 bg-yellow-50 p-4 rounded-xl border border-yellow-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div class="font-medium text-yellow-800 flex items-center"><span class="mr-2">🏃</span> 移動速度</div>
+                        <div class="font-medium text-yellow-800 flex items-center"><span class="mr-2">🏃</span> 跑馬燈移動速度</div>
                         <div class="flex items-center gap-3 w-full sm:w-auto">
                             <span class="text-sm text-yellow-600 font-medium">快</span>
                             <input type="range" min="150" max="400" value="200" id="marqueeSpeedSlider" class="flex-1 sm:w-32 h-2 bg-yellow-200 rounded-lg appearance-none cursor-pointer" oninput="updateMarqueeSpeed(this.value)">
                             <span class="text-sm text-yellow-600 font-medium">慢</span>
+                            <span id="speedValueDisplay" class="text-sm font-bold text-yellow-700 w-10 text-right">200s</span>
                         </div>
                     </div>
                     <div id="globalEventsList" class="space-y-3"></div>
@@ -154,7 +173,7 @@
         </div>
         
         <footer class="text-center text-slate-500 text-sm font-medium mt-2 mb-6 tracking-wide opacity-80">
-            大榮老師製作 &copy; 2026 | Version 1.9 (v1.9)
+            大榮老師製作 &copy; 2026 | Version 2.3 (v2.3)
         </footer>
     </div>
 
@@ -164,7 +183,7 @@
         let editMode = false;
         let isSaving = false;
         
-        let globalConfig = { marqueeSpeed: 200 }; 
+        let globalConfig = { marqueeSpeed: 200, password: '0944' }; 
         let globalEvents = [
             { id: 'e1', type: 'countdown', name: '第一次定期評量', date: '2026-11-03', enabled: true },
             { id: 'e2', type: 'countdown', name: '校慶活動', date: '2026-12-12', enabled: true }
@@ -180,7 +199,7 @@
         const CACHE_CONFIG = {
             TTL: 12 * 60 * 60 * 1000, 
             CLASS_ID: '605',
-            VERSION: '1.19.0', 
+            VERSION: '2.3.0', 
             BACKGROUND_UPDATE_INTERVAL: 5000, 
             BACKGROUND_UPDATE_ENABLED: true 
         };
@@ -192,11 +211,39 @@
         let lastSyncedLocalData = null;
         let lastSyncedGlobalData = null;
 
+        // Custom Toast Notification System
+        function showNotification(msg, type = 'success') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'fixed top-5 right-5 z-[99999] flex flex-col gap-2';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `px-6 py-3 rounded-xl shadow-2xl font-bold text-sm sm:text-base transition-all duration-300 flex items-center gap-2 toast-leave ${type === 'success' ? 'bg-green-100 text-green-800 border-2 border-green-400' : 'bg-red-100 text-red-800 border-2 border-red-400'}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.remove('toast-leave');
+                toast.classList.add('toast-enter');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-leave');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         function dateKeyISO(d) {
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
 
-        // 解析後端儲存的純文字 (支援多行直接轉換)
         function parseRawData(rawData) {
             if (!rawData) return [];
             if (typeof rawData === 'string') {
@@ -249,7 +296,6 @@
             try {
                 const dateKey = dateKeyISO(currentDate);
 
-                // 1. 自動儲存 (完全靜默，無任何提示)
                 if (editMode) {
                     const currentLocalData = JSON.stringify(homeworkData.map(h => ({ c: h.content, s: h.subject, st: h.status })));
                     const currentGlobalData = JSON.stringify({ events: globalEvents, config: globalConfig });
@@ -263,7 +309,6 @@
                     lastSyncedLocalData = currentLocalData; lastSyncedGlobalData = currentGlobalData;
                 }
 
-                // 2. 雲端抓取與比對 (完全靜默)
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 8000);
                 
@@ -276,7 +321,6 @@
                 const [cloudResult, globalResult] = await Promise.all([hwPromise, gbPromise]);
                 clearTimeout(timeoutId);
 
-                // 3. 靜默套用變更 (精準記憶焦點，不打斷輸入)
                 let needRedrawHw = false;
                 const cloudHash = calculateStableHash(cloudResult.data || []);
                 const localHash = calculateStableHash(homeworkData.map(h => ({ content: h.content, subject: h.subject })));
@@ -318,12 +362,19 @@
                     if (needRedrawGb) {
                         const parsed = parseRawData(globalResult.data);
                         if (parsed.events) globalEvents = parsed.events;
-                        if (parsed.config) globalConfig = parsed.config;
-                        if (editMode) renderGlobalEventsEditor();
+                        if (parsed.config) {
+                            globalConfig = parsed.config;
+                            // Ensure password exists in config
+                            if (!globalConfig.password) globalConfig.password = '0944';
+                        }
+                        if (editMode) {
+                            renderGlobalEventsEditor();
+                            const passInput = document.getElementById('systemPasswordInput');
+                            if (passInput) passInput.value = globalConfig.password;
+                        }
                         updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
                     }
 
-                    // 瞬間還原焦點
                     if (editMode && focusedId) {
                         let newTarget = null;
                         if (activeField === 'hw') newTarget = document.querySelector(`[data-homework-id="${focusedId}"] input[type="text"]`);
@@ -338,7 +389,7 @@
                     }
                 }
             } catch (error) {
-                // Ignore Abort errors completely
+                // Ignore Abort errors gracefully
             } finally {
                 isBackgroundUpdating = false;
             }
@@ -488,6 +539,7 @@
                 </div>`;
             }).join('');
         }
+        
         function updateGlobalEventField(id, field, el) {
             const ev = globalEvents.find(e => e.id === id);
             if (ev) {
@@ -497,9 +549,84 @@
                 updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
             }
         }
+        
         function addGlobalEvent() { globalEvents.push({ id: 'ev_' + Date.now(), type: 'message', content: '新訊息', enabled: true }); renderGlobalEventsEditor(); }
         function removeGlobalEvent(id) { globalEvents = globalEvents.filter(e => e.id !== id); renderGlobalEventsEditor(); }
-        function updateMarqueeSpeed(val) { globalConfig.marqueeSpeed = parseInt(val, 10); updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime()); }
+        
+        function updateMarqueeSpeed(val) { 
+            globalConfig.marqueeSpeed = parseInt(val, 10); 
+            const display = document.getElementById('speedValueDisplay');
+            if (display) display.textContent = globalConfig.marqueeSpeed + 's';
+            updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime()); 
+        }
+
+        function updateSystemPassword() {
+            const input = document.getElementById('systemPasswordInput');
+            const newPass = input.value.trim();
+            if (!newPass) {
+                showNotification('密碼不能為空白！', 'error');
+                return;
+            }
+            globalConfig.password = newPass;
+            saveGlobalEventsInstantly().then(() => {
+                showNotification('密碼已成功更新！', 'success');
+            }).catch(() => {
+                showNotification('密碼更新失敗，請檢查網路連線。', 'error');
+            });
+        }
+
+        async function manualRefresh() {
+            if (editMode) { showNotification('請先退出編輯模式，再重新整理！', 'error'); return; }
+            
+            const btnIcon = document.getElementById('refreshIcon');
+            const btnText = document.getElementById('refreshText');
+            if (btnIcon) btnIcon.className = "mr-1 inline-block animate-spin";
+            if (btnText) btnText.textContent = "讀取中";
+            
+            renderAllHomework(true);
+            
+            try {
+                const dateKey = dateKeyISO(currentDate);
+                const hwParams = new URLSearchParams({ action: 'load', dateKey, classId: CACHE_CONFIG.CLASS_ID, token: 'homework2025', _t: Date.now() });
+                const hwPromise = fetch(`${APPS_SCRIPT_URL}?${hwParams}`, { cache: 'no-store' })
+                    .then(async res => {
+                        const text = await res.text();
+                        try { return JSON.parse(text); } 
+                        catch (e) { throw new Error("API 權限異常或回傳非 JSON 格式（請檢查是否設定為所有人皆可存取）"); }
+                    });
+                
+                const gbParams = new URLSearchParams({ action: 'loadGlobal', classId: CACHE_CONFIG.CLASS_ID, token: 'homework2025', _t: Date.now() });
+                const gbPromise = fetch(`${APPS_SCRIPT_URL}?${gbParams}`, { cache: 'no-store' })
+                    .then(async res => {
+                        const text = await res.text();
+                        try { return JSON.parse(text); } 
+                        catch (e) { throw new Error("API 權限異常或回傳非 JSON 格式"); }
+                    });
+
+                const [cloudResult, globalResult] = await Promise.all([hwPromise, gbPromise]);
+
+                if (cloudResult && cloudResult.data) { homeworkData = normalizeHomeworkData(cloudResult.data); } 
+                else { homeworkData = []; }
+                
+                if (globalResult && globalResult.success && globalResult.data) {
+                    const parsed = parseRawData(globalResult.data);
+                    if (parsed.events) globalEvents = parsed.events;
+                    if (parsed.config) {
+                        globalConfig = parsed.config;
+                        if (!globalConfig.password) globalConfig.password = '0944'; // Safe default
+                    }
+                    updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
+                }
+                showNotification('資料已成功更新', 'success');
+            } catch (error) {
+                console.warn("手動重新整理失敗", error);
+                showNotification(`連線失敗：${error.message}`, 'error');
+            } finally {
+                renderAllHomework();
+                if (btnIcon) btnIcon.className = "mr-1";
+                if (btnText) btnText.textContent = "重新整理";
+            }
+        }
 
         async function saveToGoogleSheets(dateKey, data) {
             try {
@@ -542,16 +669,15 @@
         async function toggleEditMode() {
             if (!editMode) { showCustomPasswordDialog(); return; }
 
-            // 1. 清理空白作業，狀態全轉為確認
+            // Clean empty tasks and set status to confirmed instantly
             homeworkData = homeworkData.filter(h => h.content.trim() || h.status !== 'editing');
             homeworkData.forEach(hw => { if (hw.status === 'editing') hw.status = 'confirmed'; });
 
-            // 2. 樂觀 UI 切換 (極速體驗，畫面瞬間變回預覽模式)
+            // Optimistic UI update
             editMode = false;
             updateEditModeUI();
             renderAllHomework();
 
-            // 3. 靜默在背景寫入資料庫
             try {
                 await saveHomeworkInstantly();
                 await saveGlobalEventsInstantly();
@@ -568,6 +694,17 @@
                 document.getElementById('addHomeworkBtn').style.display = 'flex';
                 document.getElementById('marqueeEditSection').style.display = 'block';
                 document.getElementById('sortModeIndicator').style.display = 'block';
+                
+                const slider = document.getElementById('marqueeSpeedSlider');
+                const display = document.getElementById('speedValueDisplay');
+                if (slider && display) {
+                    slider.value = globalConfig.marqueeSpeed || 200;
+                    display.textContent = (globalConfig.marqueeSpeed || 200) + 's';
+                }
+
+                const passInput = document.getElementById('systemPasswordInput');
+                if (passInput) passInput.value = globalConfig.password || '0944';
+                
                 renderGlobalEventsEditor(); 
                 if(backgroundUpdateTimer) { clearInterval(backgroundUpdateTimer); backgroundUpdateTimer=null; }
             } else {
@@ -582,16 +719,23 @@
 
         function showCustomPasswordDialog() {
             const overlay = document.createElement('div'); overlay.className = 'password-dialog-overlay';
-            overlay.innerHTML = `<div class="bg-white rounded-xl p-6 shadow-2xl max-w-sm w-full mx-4"><h3 class="text-xl font-bold mb-4">🔐 請輸入密碼</h3><input type="password" id="customPasswordInput" class="w-full border border-gray-300 rounded-lg p-3 text-center text-lg mb-4 outline-none focus:border-indigo-500"><div class="flex gap-3"><button onclick="document.querySelector('.password-dialog-overlay').remove()" class="flex-1 bg-gray-200 text-gray-800 py-2.5 rounded-lg font-medium">取消</button><button onclick="confirmPassword()" class="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg font-medium">確認</button></div></div>`;
+            overlay.innerHTML = `<div class="bg-white rounded-xl p-6 shadow-2xl max-w-sm w-full mx-4"><h3 class="text-xl font-bold mb-4 text-center">🔐 請輸入密碼</h3><input type="password" id="customPasswordInput" class="w-full border border-gray-300 rounded-lg p-3 text-center text-lg mb-4 outline-none focus:border-indigo-500 focus:ring-2"><div class="flex gap-3"><button onclick="document.querySelector('.password-dialog-overlay').remove()" class="flex-1 bg-gray-200 hover:bg-gray-300 transition-colors text-gray-800 py-2.5 rounded-lg font-medium">取消</button><button onclick="confirmPassword()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 transition-colors text-white py-2.5 rounded-lg font-medium">確認</button></div></div>`;
             document.body.appendChild(overlay);
             setTimeout(() => { const i = document.getElementById('customPasswordInput'); i.focus(); i.onkeypress = e => { if(e.key==='Enter') confirmPassword(); }; }, 100);
         }
+        
         function confirmPassword() {
             const input = document.getElementById('customPasswordInput');
-            if (input?.value === '0944') {
+            const targetPass = globalConfig.password || '0944'; // Ensure fallback to 0944
+            
+            if (input?.value === targetPass) {
                 editMode = true; updateEditModeUI(); document.querySelector('.password-dialog-overlay').remove();
                 renderAllHomework();
-            } else { alert('密碼錯誤！'); input.value = ''; input.focus(); }
+                showNotification('已成功進入編輯模式！', 'success');
+            } else { 
+                showNotification('密碼錯誤！請重新輸入', 'error'); 
+                input.value = ''; input.focus(); 
+            }
         }
 
         function updateCountdown(currentDayTime) {
@@ -617,9 +761,20 @@
 
             if (msgs.length > 0) {
                 countdownMarquee.style.display = 'flex';
+                
+                marqueeText.className = 'marquee-content text-base sm:text-lg md:text-xl font-bold text-yellow-800';
+                
                 const baseMsg = msgs.join('<span class="mx-6 text-yellow-400 font-normal">|</span>') + '<span class="mx-6 text-yellow-400 font-normal">|</span>';
-                const copies = 20; const speedSetting = Math.max(150, Math.min(400, globalConfig.marqueeSpeed || 200));
-                marqueeText.style.animationDuration = `${(baseMsg.length * (copies/2) / 300) * speedSetting}s`;
+                
+                const copies = 20; 
+                const rawText = baseMsg.replace(/<[^>]*>?/gm, ''); 
+                const charCount = rawText.length || 1;
+                const crossedCopies = copies / 2;
+                const totalCrossedChars = charCount * crossedCopies;
+                const speedSetting = Math.max(150, Math.min(400, globalConfig.marqueeSpeed || 200));
+                
+                marqueeText.style.animationDuration = `${(totalCrossedChars / 300) * speedSetting}s`;
+                
                 const gHtml = `<div class="marquee-item-group">${Array(copies).fill(baseMsg).join('')}</div>`;
                 marqueeText.innerHTML = gHtml + gHtml;
             } else { countdownMarquee.style.display = 'none'; }
@@ -656,16 +811,18 @@
         
         function showDatePicker() {
             const overlay = document.createElement('div'); overlay.className = 'date-picker-overlay';
-            overlay.innerHTML = `<div class="date-picker-dialog"><h3 class="text-xl font-bold mb-4">📅 選擇日期</h3><input type="date" id="dpInput" class="date-picker-input" value="${dateKeyISO(currentDate)}" min="${dateKeyISO(firstSemesterStart)}" max="${dateKeyISO(secondSemesterEnd)}"><div class="flex gap-3"><button onclick="document.querySelector('.date-picker-overlay').remove()" class="flex-1 bg-gray-200 text-gray-800 py-2.5 rounded-lg">取消</button><button onclick="confirmDatePicker()" class="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg">確認</button></div></div>`;
+            overlay.innerHTML = `<div class="date-picker-dialog"><h3 class="text-xl font-bold mb-4">📅 選擇日期</h3><input type="date" id="dpInput" class="date-picker-input" value="${dateKeyISO(currentDate)}" min="${dateKeyISO(firstSemesterStart)}" max="${dateKeyISO(secondSemesterEnd)}"><div class="flex gap-3"><button onclick="document.querySelector('.date-picker-overlay').remove()" class="flex-1 bg-gray-200 hover:bg-gray-300 transition-colors text-gray-800 py-2.5 rounded-lg">取消</button><button onclick="confirmDatePicker()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 transition-colors text-white py-2.5 rounded-lg">確認</button></div></div>`;
             document.body.appendChild(overlay);
         }
+        
         function confirmDatePicker() {
             const val = document.getElementById('dpInput')?.value; if (!val) return;
             const d = new Date(val + 'T12:00:00');
-            if (d < firstSemesterStart || d > secondSemesterEnd) { alert('超出學期範圍！'); return; }
-            if (d.getDay() === 0 || d.getDay() === 6) { alert('週末沒有上課！'); return; }
+            if (d < firstSemesterStart || d > secondSemesterEnd) { showNotification('超出學期範圍！', 'error'); return; }
+            if (d.getDay() === 0 || d.getDay() === 6) { showNotification('週末沒有上課，請選擇平日！', 'error'); return; }
             currentDate = d; document.querySelector('.date-picker-overlay').remove(); updateDateDisplay();
         }
+        
         function showMarqueeList() {
             if (!globalEvents || globalEvents.length===0) return;
             let html = globalEvents.filter(e => e.enabled !== false).map(ev => {
@@ -679,19 +836,27 @@
             if(!html) html = `<div class="text-center text-gray-500 py-8 text-lg font-medium">目前沒有項目 📭</div>`;
             const overlay = document.createElement('div'); overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4';
             overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
-            overlay.innerHTML = `<div class="bg-white w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden"><div class="p-5 border-b flex justify-between items-center bg-yellow-50"><h3 class="text-xl font-bold text-yellow-900">📋 所有跑馬燈</h3><button onclick="this.closest('.fixed').remove()" class="text-2xl px-2">&times;</button></div><div class="p-4 overflow-y-auto flex-1 bg-white">${html}</div></div>`;
+            overlay.innerHTML = `<div class="bg-white w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden"><div class="p-5 border-b flex justify-between items-center bg-yellow-50"><h3 class="text-xl font-bold text-yellow-900">📋 所有跑馬燈</h3><button onclick="this.closest('.fixed').remove()" class="text-2xl px-2 font-bold text-gray-500 hover:text-gray-800 transition-colors">&times;</button></div><div class="p-4 overflow-y-auto flex-1 bg-white">${html}</div></div>`;
             document.body.appendChild(overlay);
         }
 
         window.addEventListener('load', () => {
             currentDate = new Date(); updateDateDisplay();
-            fetch(`${APPS_SCRIPT_URL}?action=loadGlobal&classId=${CACHE_CONFIG.CLASS_ID}&token=homework2025`).then(r=>r.json()).then(res => {
-                if(res.success && res.data){
-                    const p = parseRawData(res.data);
-                    if(p.events) globalEvents = p.events; if(p.config) globalConfig = p.config;
-                    updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
-                }
-            });
+            fetch(`${APPS_SCRIPT_URL}?action=loadGlobal&classId=${CACHE_CONFIG.CLASS_ID}&token=homework2025`)
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.data) {
+                        const p = parseRawData(res.data);
+                        if (p.events) globalEvents = p.events; 
+                        if (p.config) {
+                            globalConfig = p.config;
+                            if (!globalConfig.password) globalConfig.password = '0944'; // default payload
+                        }
+                        updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
+                    }
+                })
+                .catch(e => console.warn('初始化設定抓取失敗（此為正常保護機制）：', e));
+                
             backgroundUpdateTimer = setInterval(() => { if (document.visibilityState === 'visible') performBackgroundUpdate(); }, CACHE_CONFIG.BACKGROUND_UPDATE_INTERVAL);
         });
     </script>
