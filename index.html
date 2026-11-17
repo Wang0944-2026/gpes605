@@ -80,20 +80,27 @@
         
         /* 聯絡簿拖拽排序樣式 */
         .sortable-item {
-            cursor: move;
-            transition: all 0.2s ease;
+            cursor: grab;
+            transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s ease, opacity 0.18s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .sortable-item:active {
+            cursor: grabbing;
         }
         .sortable-item:hover { transform: translateY(-1px); }
         .sortable-item.dragging {
-            opacity: 0.5;
-            transform: rotate(2deg);
+            opacity: 0.45;
+            transform: scale(0.99);
+            box-shadow: 0 12px 28px rgba(99, 102, 241, 0.25);
+            border: 2px dashed #6366f1 !important;
             z-index: 1000;
         }
-        .sortable-item.drag-over { border-top: 3px solid #6366f1; }
         .drag-handle {
             cursor: grab;
             color: #9ca3af;
             transition: color 0.2s;
+            touch-action: none;
         }
         .drag-handle:hover { color: #6366f1; }
         .drag-handle:active { cursor: grabbing; }
@@ -176,9 +183,12 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-2 sm:p-4 relative">
     
-    <!-- 懸浮 QR Code 按鈕 -->
-    <button onclick="showQRCode()" class="fixed top-2 left-2 sm:top-4 sm:left-4 z-50 bg-white/80 hover:bg-white backdrop-blur-sm border border-indigo-100 shadow-md hover:shadow-lg text-indigo-600 rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-all duration-300 transform hover:scale-110" title="顯示行動裝置掃描 QR Code">
-        <span class="text-xl sm:text-2xl">📱</span>
+    <!-- 懸浮 QR Code 按鈕 (專屬向量圖示) -->
+    <button onclick="showQRCode()" class="fixed top-2 left-2 sm:top-4 sm:left-4 z-50 bg-white/90 hover:bg-white backdrop-blur-sm border border-indigo-200 shadow-md hover:shadow-lg text-indigo-600 rounded-xl w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-all duration-300 transform hover:scale-110" title="顯示行動裝置掃描 QR Code">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 sm:w-7 sm:h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h6v6H3V3zm12 0h6v6h-6V3zM3 15h6v6H3v-6zm13 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2zm-2-2h2v2h-2v-2z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 5h2v2H5V5zm12 0h2v2h-2V5zM5 17h2v2H5v-2z" />
+        </svg>
     </button>
 
     <div class="max-w-4xl mx-auto">
@@ -249,6 +259,77 @@
                         <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 rounded-xl transition-opacity duration-300"></div>
                     </button>
                 </div>
+
+                <!-- 跨日編輯：待儲存日期導覽列 -->
+                <div id="pendingEditsBar" style="display: none;" class="mb-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl p-3 shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center flex-wrap gap-1.5" id="pendingEditsList">
+                            <!-- 動態產生已修改日期標籤 -->
+                        </div>
+                        <span class="text-xs text-indigo-600 font-medium">💡 點擊「退出編輯」將一次儲存所有修改日期</span>
+                    </div>
+                </div>
+
+                <!-- 備課助手面板 (方案 B：近期作業對照 ＆ 方案 C：待指派備忘錄) -->
+                <div id="teacherAssistantPanel" style="display: none;" class="mb-5 bg-slate-50 border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <!-- 頂部切換列 -->
+                    <div class="bg-slate-100 px-3 py-2.5 sm:px-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5 sm:gap-2">
+                            <button type="button" id="tabBtnHistory" onclick="switchAssistantTab('history')" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-indigo-600 text-white shadow-sm flex items-center gap-1">
+                                <span>📅</span> 近期作業對照
+                            </button>
+                            <button type="button" id="tabBtnMemo" onclick="switchAssistantTab('memo')" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-white text-slate-700 hover:bg-slate-200 border border-slate-300 flex items-center gap-1">
+                                <span>📌</span> 待指派備忘錄 <span id="memoCountBadge" class="ml-1 px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[11px]">0</span>
+                            </button>
+                        </div>
+                        <button type="button" onclick="toggleAssistantCollapse()" id="assistantCollapseBtn" class="text-xs sm:text-sm text-slate-500 hover:text-slate-800 font-medium px-2 py-1 rounded hover:bg-slate-200 transition-colors">
+                            🔽 收合助手
+                        </button>
+                    </div>
+
+                    <div id="assistantBody" class="p-3 sm:p-4">
+                        <!-- 方案 B：近期 3~5 天作業並排對照 -->
+                        <div id="assistantHistorySection">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                <span class="text-xs sm:text-sm text-slate-600 font-medium">💡 檢視此日期前幾個上課日的作業，點擊「➕ 帶入」即可複製到今日並修改頁數：</span>
+                                <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+                                    <button type="button" id="historyDays3Btn" onclick="setHistoryDaysCount(3)" class="px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700">前 3 天</button>
+                                    <button type="button" id="historyDays5Btn" onclick="setHistoryDaysCount(5)" class="px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100">前 5 天</button>
+                                    <button type="button" onclick="loadRecentHistoryComparison(true)" class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-md font-bold" title="重新讀取歷史作業">🔄</button>
+                                </div>
+                            </div>
+                            <div id="historyComparisonGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                <!-- 由 JS 動態渲染近期對照卡片 -->
+                            </div>
+                        </div>
+
+                        <!-- 方案 C：待指派備忘錄 -->
+                        <div id="assistantMemoSection" style="display: none;">
+                            <div class="text-xs sm:text-sm text-slate-600 font-medium mb-3">
+                                💡 隨手記下預計要出的作業或頁數進度（會隨系統設定同步至雲端），出作業時可一鍵移入當日：
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                                <select id="newMemoSubject" class="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 sm:w-28">
+                                    <option value="國語">國語</option>
+                                    <option value="數學">數學</option>
+                                    <option value="自然">自然</option>
+                                    <option value="社會">社會</option>
+                                    <option value="週記">週記</option>
+                                    <option value="作文">作文</option>
+                                    <option value="均一">均一</option>
+                                    <option value="其它">其它</option>
+                                </select>
+                                <input type="text" id="newMemoContent" placeholder="輸入待指派作業（例：習 P.60-62、L9 圈詞...）" class="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm sm:text-base font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" onkeypress="if(event.key==='Enter') addMemoItem()">
+                                <button type="button" onclick="addMemoItem()" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm shrink-0">
+                                    ➕ 加入備忘
+                                </button>
+                            </div>
+                            <div id="memoItemsList" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <!-- 由 JS 動態渲染備忘清單 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- 作業列表容器 -->
                 <div id="homeworkContainer" class="space-y-2">
@@ -268,6 +349,8 @@
                         </div>
                         <div id="editingList" class="space-y-2"></div>
                     </div>
+
+                    <div id=" loadingStateWrapper"></div>
                     
                     <div id="loadingState" class="text-center py-12 text-gray-500" style="display: none;">
                         <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
@@ -281,9 +364,17 @@
                     </div>
                 </div>
 
-                <button id="addHomeworkBtn" onclick="addHomework()" class="mt-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center shadow-lg w-full justify-center sm:w-auto" style="display: none;">
-                    <span class="text-xl mr-2">➕</span> 新增作業
-                </button>
+                <div class="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <button id="addHomeworkBtn" onclick="addHomework()" class="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center shadow-lg justify-center sm:w-auto" style="display: none;">
+                        <span class="text-xl mr-2">➕</span> 新增作業
+                    </button>
+
+                    <!-- 早自習分隔線勾選開關 -->
+                    <label id="dividerToggleWrapper" class="cursor-pointer bg-amber-50 hover:bg-amber-100 border-2 border-amber-300 text-amber-900 px-4 py-3 rounded-xl font-bold transition-all shadow-sm select-none items-center justify-center sm:justify-start" style="display: none;">
+                        <input type="checkbox" id="dividerCheckbox" onchange="toggleDividerSection(this.checked)" class="w-5 h-5 text-amber-600 rounded focus:ring-amber-500 mr-2.5 cursor-pointer">
+                        <span class="text-sm sm:text-base">顯示「---以下不用寫進聯絡簿---」分隔線</span>
+                    </label>
+                </div>
                 
                 <!-- 全域跑馬燈設定區塊 -->
                 <div id="marqueeEditSection" class="mt-8 pt-6 border-t-2 border-gray-100" style="display: none;">
@@ -329,7 +420,7 @@
 
         <!-- 版權與版本宣告 -->
         <footer class="mt-8 mb-4 text-center text-gray-400 text-sm font-medium">
-            大榮老師製作 &copy; 2026 | Version 3.5 (v3.5)
+            大榮老師製作 &copy; 2026 | Version 4.0 (v4.0)
         </footer>
     </div>
 
@@ -340,7 +431,14 @@
         let isSaving = false;
         let homeworkData = []; 
         
-        let globalConfig = { marqueeSpeed: 200, password: '0944' }; 
+        // 跨日自由編輯暫存區 (Map: dateKey -> HomeworkItem[])
+        const pendingEdits = new Map();
+        const PENDING_STORAGE_KEY = 'gpes605_pending_edits_v4';
+        let historyDaysCount = 3;
+        let activeAssistantTab = 'history';
+        let assistantCollapsed = false;
+
+        let globalConfig = { marqueeSpeed: 200, password: '0944', memos: [] }; 
         let globalEvents = [
             { id: 'e1', type: 'countdown', name: '第一次定期評量 (4/16-17)', date: '2026-04-16', enabled: true },
             { id: 'e2', type: 'countdown', name: '全台學力檢測 (5/28)', date: '2026-05-28', enabled: true }
@@ -360,8 +458,8 @@
         const CACHE_CONFIG = {
             TTL: 12 * 60 * 60 * 1000, 
             CLASS_ID: '605',
-            VERSION: '2.7.0',
-            BACKGROUND_UPDATE_INTERVAL: 5000, 
+            VERSION: '4.0.0',
+            BACKGROUND_UPDATE_INTERVAL: 30000, 
             BACKGROUND_UPDATE_ENABLED: true 
         };
 
@@ -401,10 +499,389 @@
 
         function normalizePassword(pw) {
             if (!pw) return '';
-            let str = String(pw).toLowerCase();
+            let str = String(pw).replace(/[\u3000\s]+/g, '').toLowerCase();
             return str.replace(/[\uff01-\uff5e]/g, function(ch) {
                 return String.fromCharCode(ch.charCodeAt(0) - 0xfee0);
+            }).trim();
+        }
+
+        function cloneHomeworkList(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(hw => new HomeworkItem(hw.id, hw.subject, hw.content, hw.status, hw.timestamp));
+        }
+
+        function syncCurrentDateToPending() {
+            if (!editMode) return;
+            const key = dateKeyISO(currentDate);
+            pendingEdits.set(key, cloneHomeworkList(homeworkData));
+            savePendingEditsToLocal();
+            renderPendingEditsBar();
+        }
+
+        function autoConfirmCurrentEditingItems() {
+            if (!editMode) return;
+            let changed = false;
+            homeworkData = homeworkData.filter(hw => {
+                if (hw.status === 'editing') {
+                    if (hw.content && hw.content.trim()) {
+                        hw.status = 'confirmed';
+                        changed = true;
+                        return true;
+                    }
+                    changed = true;
+                    return false;
+                }
+                return true;
             });
+            if (changed && pendingEdits.has(dateKeyISO(currentDate))) {
+                pendingEdits.set(dateKeyISO(currentDate), cloneHomeworkList(homeworkData));
+                savePendingEditsToLocal();
+            }
+        }
+
+        function savePendingEditsToLocal() {
+            try {
+                const obj = {};
+                pendingEdits.forEach((val, key) => { obj[key] = val; });
+                localStorage.setItem(PENDING_STORAGE_KEY, JSON.stringify({ updatedAt: Date.now(), edits: obj }));
+            } catch (e) {}
+        }
+
+        function clearPendingEditsLocal() {
+            try { localStorage.removeItem(PENDING_STORAGE_KEY); } catch (e) {}
+        }
+
+        function renderPendingEditsBar() {
+            const bar = document.getElementById('pendingEditsBar');
+            const listEl = document.getElementById('pendingEditsList');
+            if (!bar || !listEl) return;
+
+            if (!editMode || pendingEdits.size === 0) {
+                bar.style.display = 'none';
+                return;
+            }
+
+            bar.style.display = 'block';
+            const currKey = dateKeyISO(currentDate);
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const keys = Array.from(pendingEdits.keys()).sort();
+
+            let html = `<span class="text-xs sm:text-sm font-bold text-indigo-900 mr-1">✏️ 待儲存日期 (${keys.length}天)：</span>`;
+            keys.forEach(k => {
+                const [y, m, d] = k.split('-').map(Number);
+                const dt = new Date(y, m - 1, d);
+                const w = weekdays[dt.getDay()];
+                const isCurr = (k === currKey);
+                const count = (pendingEdits.get(k) || []).filter(h => !isSeparatorItem(h) && h.content.trim()).length;
+                html += `
+                    <div class="inline-flex items-center rounded-lg overflow-hidden border ${isCurr ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-100'} transition-colors text-xs sm:text-sm font-bold">
+                        <button type="button" onclick="jumpToDateKey('${k}')" class="px-2.5 py-1 flex items-center gap-1">
+                            <span>${m}/${d}(${w})</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] ${isCurr ? 'bg-indigo-800 text-indigo-100' : 'bg-indigo-100 text-indigo-800'}">${count}項</span>
+                        </button>
+                        <button type="button" onclick="discardDatePendingEdit('${k}', event)" class="px-1.5 py-1 hover:bg-red-500 hover:text-white transition-colors" title="放棄此日未儲存的修改">×</button>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        function jumpToDateKey(dateKey) {
+            const [y, m, d] = dateKey.split('-').map(Number);
+            if (!y || !m || !d) return;
+            autoConfirmCurrentEditingItems();
+            currentDate = new Date(y, m - 1, d, 12, 0, 0);
+            updateDateDisplay();
+        }
+
+        function discardDatePendingEdit(dateKey, event) {
+            if (event) event.stopPropagation();
+            pendingEdits.delete(dateKey);
+            savePendingEditsToLocal();
+            renderPendingEditsBar();
+            if (dateKeyISO(currentDate) === dateKey) {
+                const cacheItem = getFromMemoryCache(dateKey);
+                homeworkData = cacheItem && cacheItem.data ? cloneHomeworkList(cacheItem.data) : [];
+                renderAllHomework();
+                loadHomeworkWithSWR(dateKey);
+            }
+            showToast(`已還原 ${dateKey} 的未儲存修改`, 'info');
+        }
+
+        // ==========================================
+        // 備課助手：方案 B (近期作業對照) & 方案 C (待指派備忘錄)
+        // ==========================================
+        function switchAssistantTab(tab) {
+            activeAssistantTab = tab;
+            const tabHistory = document.getElementById('tabBtnHistory');
+            const tabMemo = document.getElementById('tabBtnMemo');
+            const secHistory = document.getElementById('assistantHistorySection');
+            const secMemo = document.getElementById('assistantMemoSection');
+            const body = document.getElementById('assistantBody');
+
+            if (assistantCollapsed) {
+                assistantCollapsed = false;
+                if (body) body.style.display = 'block';
+                const colBtn = document.getElementById('assistantCollapseBtn');
+                if (colBtn) colBtn.textContent = '🔽 收合助手';
+            }
+
+            if (tab === 'history') {
+                tabHistory.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-indigo-600 text-white shadow-sm flex items-center gap-1';
+                tabMemo.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-white text-slate-700 hover:bg-slate-200 border border-slate-300 flex items-center gap-1';
+                secHistory.style.display = 'block';
+                secMemo.style.display = 'none';
+                loadRecentHistoryComparison();
+            } else {
+                tabMemo.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-amber-500 text-white shadow-sm flex items-center gap-1';
+                tabHistory.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-white text-slate-700 hover:bg-slate-200 border border-slate-300 flex items-center gap-1';
+                secHistory.style.display = 'none';
+                secMemo.style.display = 'block';
+                renderMemoList();
+            }
+        }
+
+        function toggleAssistantCollapse() {
+            assistantCollapsed = !assistantCollapsed;
+            const body = document.getElementById('assistantBody');
+            const btn = document.getElementById('assistantCollapseBtn');
+            if (body) body.style.display = assistantCollapsed ? 'none' : 'block';
+            if (btn) btn.textContent = assistantCollapsed ? '▶️ 展開助手' : '🔽 收合助手';
+        }
+
+        function setHistoryDaysCount(count) {
+            historyDaysCount = count;
+            const btn3 = document.getElementById('historyDays3Btn');
+            const btn5 = document.getElementById('historyDays5Btn');
+            const grid = document.getElementById('historyComparisonGrid');
+            if (btn3 && btn5) {
+                btn3.className = count === 3 ? 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700' : 'px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100';
+                btn5.className = count === 5 ? 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700' : 'px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100';
+            }
+            if (grid) {
+                grid.className = count === 5 ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2' : 'grid grid-cols-1 sm:grid-cols-3 gap-2.5';
+            }
+            loadRecentHistoryComparison();
+        }
+
+        function getPreviousSchoolDays(baseDate, count) {
+            const days = [];
+            const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 12, 0, 0);
+            let safety = 0;
+            while (days.length < count && safety < 30) {
+                d.setDate(d.getDate() - 1);
+                safety++;
+                if (d < firstSemesterStart) break;
+                const w = d.getDay();
+                if (w !== 0 && w !== 6) {
+                    days.push(new Date(d));
+                }
+            }
+            return days;
+        }
+
+        async function loadRecentHistoryComparison(forceRefresh = false) {
+            if (!editMode) return;
+            const grid = document.getElementById('historyComparisonGrid');
+            if (!grid) return;
+
+            const prevDays = getPreviousSchoolDays(currentDate, historyDaysCount);
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+
+            if (prevDays.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-4 text-slate-400 text-sm">此日期之前無本學期上課日紀錄</div>`;
+                return;
+            }
+
+            // 先用快取或暫存渲染骨架
+            const renderCards = () => {
+                grid.innerHTML = prevDays.map(dt => {
+                    const k = dateKeyISO(dt);
+                    const m = dt.getMonth() + 1;
+                    const d = dt.getDate();
+                    const w = weekdays[dt.getDay()];
+                    let items = null;
+
+                    if (pendingEdits.has(k)) {
+                        items = pendingEdits.get(k);
+                    } else {
+                        const c = getFromMemoryCache(k);
+                        if (c && Array.isArray(c.data)) items = c.data;
+                    }
+
+                    let bodyHtml = '';
+                    if (items === null) {
+                        bodyHtml = `<div class="text-xs text-slate-400 py-3 text-center">載入中...</div>`;
+                    } else {
+                        const validItems = items.filter(hw => !isSeparatorItem(hw) && hw.content && hw.content.trim());
+                        if (validItems.length === 0) {
+                            bodyHtml = `<div class="text-xs text-slate-400 py-3 text-center">無指派作業</div>`;
+                        } else {
+                            bodyHtml = validItems.map((hw, idx) => {
+                                const shortSubj = {'國語':'國','數學':'數','社會':'社','自然':'自','其它':''}[hw.subject] ?? (hw.subject + ' ');
+                                const label = `${idx + 1}. ${shortSubj}${hw.content}`;
+                                const safeSubj = hw.subject.replace(/'/g, "\\'");
+                                const safeContent = hw.content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                return `
+                                    <div class="flex items-center justify-between gap-1.5 bg-slate-50 hover:bg-indigo-50/70 px-2 py-1.5 rounded-lg border border-slate-200/80 text-xs sm:text-sm">
+                                        <span class="font-medium text-slate-700 truncate" title="${label}">${label}</span>
+                                        <button type="button" onclick="copyHistoryToToday('${safeSubj}', '${safeContent}')" class="shrink-0 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 px-1.5 py-0.5 rounded text-[11px] font-bold transition-colors" title="帶入今日作業並修改頁碼">
+                                            ➕ 帶入
+                                        </button>
+                                    </div>
+                                `;
+                            }).join('');
+                        }
+                    }
+
+                    return `
+                        <div class="bg-white rounded-xl border border-slate-200 p-2.5 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2">
+                                    <button type="button" onclick="jumpToDateKey('${k}')" class="font-bold text-xs sm:text-sm text-indigo-700 hover:underline flex items-center gap-1" title="點擊切換至此日期">
+                                        <span>${m}/${d} (週${w})</span>
+                                    </button>
+                                    ${pendingEdits.has(k) ? '<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">已改</span>' : ''}
+                                </div>
+                                <div class="space-y-1 max-h-40 overflow-y-auto custom-scrollbar pr-0.5">
+                                    ${bodyHtml}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            renderCards();
+
+            // 找出尚未快取的日期，透過批次或並行抓取
+            const missingKeys = prevDays.map(dateKeyISO).filter(k => forceRefresh || (!pendingEdits.has(k) && !getFromMemoryCache(k)));
+            if (missingKeys.length === 0) return;
+
+            try {
+                // 優先嘗試後端批次讀取 loadBatch
+                const params = new URLSearchParams({ action: 'loadBatch', dateKeys: missingKeys.join(','), classId: CACHE_CONFIG.CLASS_ID, token: 'homework2025', _t: Date.now() });
+                const resp = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`, { cache: 'no-store' });
+                if (resp.ok) {
+                    const resObj = JSON.parse(await resp.text());
+                    if (resObj && resObj.success && resObj.dataMap) {
+                        for (const k of missingKeys) {
+                            const raw = resObj.dataMap[k] || [];
+                            const norm = normalizeHomeworkData(raw);
+                            writeToCache(k, norm, calculateStableHash(raw));
+                        }
+                        renderCards();
+                        return;
+                    }
+                }
+            } catch (e) {
+                // 後端若尚未更新支援 loadBatch，自動降級為逐一非同步讀取
+            }
+
+            await Promise.allSettled(missingKeys.map(k => loadFromCloudWithCache(k, true)));
+            if (editMode) renderCards();
+        }
+
+        function copyHistoryToToday(subject, content) {
+            if (!editMode) return;
+            const hw = new HomeworkItem(null, subject || '國語', content || '', 'editing');
+            homeworkData.push(hw);
+            currentlyFocusedInputId = hw.id;
+            currentlyFocusedCursorPos = (content || '').length;
+            syncCurrentDateToPending();
+            renderAllHomework();
+            showToast(`已帶入「${subject} ${content}」，可直接修改頁碼！`, 'success');
+        }
+
+        // 方案 C：待指派備忘錄邏輯
+        function ensureMemosArray() {
+            if (!globalConfig) globalConfig = { marqueeSpeed: 200, password: '0944', memos: [] };
+            if (!Array.isArray(globalConfig.memos)) globalConfig.memos = [];
+            return globalConfig.memos;
+        }
+
+        function updateMemoCountBadge() {
+            const badge = document.getElementById('memoCountBadge');
+            if (badge) badge.textContent = ensureMemosArray().length;
+        }
+
+        function renderMemoList() {
+            const listEl = document.getElementById('memoItemsList');
+            updateMemoCountBadge();
+            if (!listEl) return;
+
+            const memos = ensureMemosArray();
+            if (memos.length === 0) {
+                listEl.innerHTML = `<div class="col-span-full text-center py-4 text-slate-400 text-xs sm:text-sm bg-white rounded-xl border border-dashed border-slate-200">目前沒有待指派的備忘項目</div>`;
+                return;
+            }
+
+            listEl.innerHTML = memos.map(m => {
+                const shortSubj = {'國語':'國','數學':'數','社會':'社','自然':'自','其它':'其它'}[m.subject] || m.subject;
+                return `
+                    <div class="bg-amber-50/80 border border-amber-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shadow-sm">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <span class="px-2 py-0.5 bg-amber-200/80 text-amber-900 rounded text-xs font-bold shrink-0">${shortSubj}</span>
+                            <span class="font-bold text-slate-800 text-sm sm:text-base truncate" title="${m.content}">${m.content}</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button type="button" onclick="moveMemoToToday('${m.id}', true)" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-lg text-xs font-bold transition-colors" title="移入當日作業並從備忘移除">
+                                ⬆️ 移入當日
+                            </button>
+                            <button type="button" onclick="moveMemoToToday('${m.id}', false)" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2 py-1 rounded-lg text-xs font-bold transition-colors" title="複製到當日作業（保留備忘）">
+                                📋
+                            </button>
+                            <button type="button" onclick="deleteMemoItem('${m.id}')" class="text-red-500 hover:bg-red-100 px-1.5 py-1 rounded-lg text-xs transition-colors" title="刪除備忘">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addMemoItem() {
+            const subjEl = document.getElementById('newMemoSubject');
+            const contEl = document.getElementById('newMemoContent');
+            const content = contEl ? contEl.value.trim() : '';
+            if (!content) return showToast('請輸入備忘內容！', 'warning');
+
+            const memos = ensureMemosArray();
+            memos.push({
+                id: 'memo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                subject: subjEl ? subjEl.value : '國語',
+                content: content,
+                createdAt: new Date().toISOString()
+            });
+            if (contEl) contEl.value = '';
+            renderMemoList();
+            showToast('已加入待指派備忘錄', 'success');
+        }
+
+        function moveMemoToToday(memoId, removeAfterMove = true) {
+            if (!editMode) return;
+            const memos = ensureMemosArray();
+            const idx = memos.findIndex(m => m.id === memoId);
+            if (idx === -1) return;
+
+            const memo = memos[idx];
+            const hw = new HomeworkItem(null, memo.subject, memo.content, 'confirmed');
+            const firstEditingIdx = homeworkData.findIndex(h => h.status === 'editing');
+            if (firstEditingIdx > -1) homeworkData.splice(firstEditingIdx, 0, hw);
+            else homeworkData.push(hw);
+
+            if (removeAfterMove) memos.splice(idx, 1);
+
+            syncCurrentDateToPending();
+            renderMemoList();
+            renderAllHomework();
+            showToast(`已將「${memo.subject} ${memo.content}」加入當日作業！`, 'success');
+        }
+
+        function deleteMemoItem(memoId) {
+            const memos = ensureMemosArray();
+            globalConfig.memos = memos.filter(m => m.id !== memoId);
+            renderMemoList();
         }
 
         function togglePasswordVisibility(inputId) {
@@ -486,24 +963,14 @@
         }
 
         async function performBackgroundUpdate() {
-            if (isBackgroundUpdating) return;
+            if (isBackgroundUpdating || editMode) return;
             isBackgroundUpdating = true;
             try {
-                const dateKey = dateKeyISO(currentDate);
-                
-                if (editMode) {
-                    const currentDataHash = calculateStableHash(homeworkData);
-                    const cacheItem = getFromMemoryCache(dateKey);
-                    if (!cacheItem || cacheItem.hash !== currentDataHash) {
-                        const legacyData = homeworkData.map(hw => ({ text: hw.content, subject: hw.subject, confirmed: hw.status === 'confirmed', timestamp: hw.timestamp }));
-                        const saveRes = await saveToGoogleSheets(dateKey, legacyData);
-                        if(saveRes.success) {
-                            writeToCache(dateKey, normalizeHomeworkData(legacyData), currentDataHash);
-                        }
-                    }
-                    return; 
-                }
+                // 加入 0~3 秒隨機延遲 (Jitter)，避免全班平板同時發送請求塞爆伺服器
+                await new Promise(r => setTimeout(r, Math.floor(Math.random() * 3000)));
+                if (editMode) return;
 
+                const dateKey = dateKeyISO(currentDate);
                 const cacheItem = getFromMemoryCache(dateKey);
                 const cloudResult = await loadFromCloudWithCache(dateKey, true);
                 
@@ -514,7 +981,7 @@
                     }
                 }
 
-                if (shouldUpdateUI) {
+                if (shouldUpdateUI && !editMode) {
                     homeworkData = [...cloudResult.data];
                     renderAllHomework();
                 }
@@ -590,6 +1057,7 @@
                                 <option value="社會" ${homework.subject === '社會' ? 'selected' : ''}>社會</option>
                                 <option value="週記" ${homework.subject === '週記' ? 'selected' : ''}>週記</option>
                                 <option value="作文" ${homework.subject === '作文' ? 'selected' : ''}>作文</option>
+                                <option value="均一" ${homework.subject === '均一' ? 'selected' : ''}>均一</option>
                                 <option value="其它" ${homework.subject === '其它' ? 'selected' : ''}>其它</option>
                             </select>
                         </div>
@@ -625,6 +1093,68 @@
         function trackFocus(id, el) { currentlyFocusedInputId = id; currentlyFocusedCursorPos = el.selectionStart; }
         function clearFocus(id) { if(currentlyFocusedInputId === id) { currentlyFocusedInputId = null; currentlyFocusedCursorPos = null; } }
 
+        function isSeparatorItem(hw) {
+            return hw && (hw.subject === '分隔線' || hw.content.trim() === '---以下不用寫進聯絡簿---');
+        }
+
+        function getSeparatorIndex() {
+            return homeworkData.findIndex(isSeparatorItem);
+        }
+
+        function toggleDividerSection(checked) {
+            if (!editMode) return;
+            const sepIdx = getSeparatorIndex();
+            if (checked && sepIdx === -1) {
+                const sepItem = new HomeworkItem(null, '分隔線', '---以下不用寫進聯絡簿---', 'confirmed');
+                // 插入在所有已確認作業的最後方（編輯中作業之前）
+                const firstEditingIdx = homeworkData.findIndex(hw => hw.status === 'editing');
+                if (firstEditingIdx > -1) {
+                    homeworkData.splice(firstEditingIdx, 0, sepItem);
+                } else {
+                    homeworkData.push(sepItem);
+                }
+            } else if (!checked && sepIdx > -1) {
+                homeworkData.splice(sepIdx, 1);
+            }
+            syncCurrentDateToPending();
+            renderAllHomework();
+        }
+
+        function renderSeparatorItem(homework) {
+            const item = document.createElement('div');
+            item.className = 'py-1.5 my-1 px-2 rounded-xl transition-all flex items-center justify-between';
+            item.dataset.homeworkId = homework.id;
+
+            if (editMode) {
+                item.classList.add('sortable-item', 'bg-amber-50/70', 'border', 'border-dashed', 'border-amber-300');
+                item.setAttribute('draggable', 'true');
+                attachSortableEvents(item);
+            }
+
+            const dragHandle = editMode
+                ? `<div class="drag-handle mr-2 sm:mr-3 text-lg sm:text-xl cursor-grab hover:cursor-grabbing select-none shrink-0 text-amber-600" title="按住拖曳移動分隔線">⋮⋮</div>`
+                : '';
+
+            const deleteBtn = editMode
+                ? `<button onclick="toggleDividerSection(false)" class="text-red-500 hover:text-red-700 text-base sm:text-lg ml-2 shrink-0" title="移除分隔線">🗑️</button>`
+                : '';
+
+            item.innerHTML = `
+                <div class="flex items-center w-full">
+                    ${dragHandle}
+                    <div class="flex items-center flex-1 min-w-0">
+                        <div class="h-0.5 flex-1 bg-gradient-to-r from-transparent via-amber-400 to-amber-500 rounded-full"></div>
+                        <span class="px-3 sm:px-4 text-amber-800 font-bold text-xs sm:text-sm md:text-base tracking-wider whitespace-nowrap">
+                            ---以下不用寫進聯絡簿---
+                        </span>
+                        <div class="h-0.5 flex-1 bg-gradient-to-l from-transparent via-amber-400 to-amber-500 rounded-full"></div>
+                    </div>
+                    ${deleteBtn}
+                </div>
+            `;
+            return item;
+        }
+
         function renderAllHomework(isLoading = false) {
             const confirmedList = document.getElementById('confirmedList');
             const editingList = document.getElementById('editingList');
@@ -632,6 +1162,7 @@
             const editingSection = document.getElementById('editingSection');
             const emptyState = document.getElementById('emptyState');
             const loadingState = document.getElementById('loadingState');
+            const dividerCheckbox = document.getElementById('dividerCheckbox');
             
             if (isLoading) {
                 confirmedSection.style.display = 'none'; editingSection.style.display = 'none';
@@ -640,21 +1171,38 @@
             }
             loadingState.style.display = 'none';
             
+            const hasSeparator = getSeparatorIndex() > -1;
+            if (dividerCheckbox) dividerCheckbox.checked = hasSeparator;
+
             const confirmed = homeworkData.filter(hw => hw.status === 'confirmed');
             const editing = homeworkData.filter(hw => hw.status === 'editing');
             
             const confirmedFragment = document.createDocumentFragment();
             const editingFragment = document.createDocumentFragment();
             
-            confirmed.forEach((hw, idx) => confirmedFragment.appendChild(renderHomeworkItemOptimized(hw, idx + 1)));
+            let seq = 1;
+            confirmed.forEach(hw => {
+                if (isSeparatorItem(hw)) {
+                    seq = 1; // 分隔線下方的作業重新從 1 開始編號
+                    confirmedFragment.appendChild(renderSeparatorItem(hw));
+                } else {
+                    confirmedFragment.appendChild(renderHomeworkItemOptimized(hw, seq++));
+                }
+            });
             editing.forEach(hw => editingFragment.appendChild(renderHomeworkItem(hw)));
             
             confirmedList.innerHTML = ''; editingList.innerHTML = '';
             confirmedList.appendChild(confirmedFragment); editingList.appendChild(editingFragment);
             
+            if (editMode) {
+                setupConfirmedListContainerDrag(confirmedList);
+            }
+            
             confirmedSection.style.display = confirmed.length > 0 ? 'block' : 'none';
             editingSection.style.display = (editing.length > 0 && editMode) ? 'block' : 'none';
-            emptyState.style.display = (confirmed.length > 0 || (editing.length > 0 && editMode)) ? 'none' : 'block';
+
+            const hasAnyVisibleContent = confirmed.length > 0 || (editing.length > 0 && editMode);
+            emptyState.style.display = hasAnyVisibleContent ? 'none' : 'block';
         }
 
         function renderHomeworkItemOptimized(homework, sequenceNumber) {
@@ -664,14 +1212,19 @@
             
             if (editMode) {
                 item.classList.add('sortable-item');
-                item.addEventListener('dragstart', handleDragStart);
-                item.addEventListener('dragend', handleDragEnd);
-                item.addEventListener('dragover', handleDragOver);
-                item.addEventListener('drop', handleDrop);
+                item.setAttribute('draggable', 'true');
+                attachSortableEvents(item);
             }
             
-            let displayText = homework.subject === '其它' ? `${sequenceNumber}. ${homework.content}` : `${sequenceNumber}. ${{'國語':'國','數學':'數','社會':'社','自然':'自'}[homework.subject] || homework.subject}${homework.content}`;
-            const dragHandle = editMode ? `<div class="drag-handle mr-2 sm:mr-3 text-xl sm:text-2xl cursor-grab hover:cursor-grabbing select-none shrink-0" draggable="false" onmousedown="this.closest('.sortable-item').setAttribute('draggable', 'true')" ontouchstart="this.closest('.sortable-item').setAttribute('draggable', 'true')">⋮⋮</div>` : '';
+            let displayText = '';
+            if (homework.subject === '其它') {
+                displayText = `${sequenceNumber}. ${homework.content}`;
+            } else if (homework.subject === '均一') {
+                displayText = `${sequenceNumber}. 均一 ${homework.content.trimStart()}`;
+            } else {
+                displayText = `${sequenceNumber}. ${{'國語':'國','數學':'數','社會':'社','自然':'自'}[homework.subject] || homework.subject}${homework.content}`;
+            }
+            const dragHandle = editMode ? `<div class="drag-handle mr-2 sm:mr-3 text-xl sm:text-2xl cursor-grab hover:cursor-grabbing select-none shrink-0" title="按住拖曳調整順序">⋮⋮</div>` : '';
             
             item.innerHTML = `
                 <div class="flex items-center justify-between">
@@ -689,45 +1242,126 @@
         }
 
         let draggedElement = null, draggedHomeworkId = null;
+
+        function getDragAfterElement(container, y, selector = '.sortable-item:not(.dragging)') {
+            const draggableElements = [...container.querySelectorAll(selector)];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function syncHomeworkOrderFromDOM() {
+            const confirmedList = document.getElementById('confirmedList');
+            if (!confirmedList) return;
+            const domIds = [...confirmedList.querySelectorAll('.sortable-item')].map(el => el.dataset.homeworkId);
+            if (domIds.length === 0) return;
+
+            const itemMap = new Map(homeworkData.map(hw => [hw.id, hw]));
+            const newConfirmedOrder = [];
+            domIds.forEach(id => {
+                const hw = itemMap.get(id);
+                if (hw) {
+                    hw.timestamp = new Date().toISOString();
+                    newConfirmedOrder.push(hw);
+                    itemMap.delete(id);
+                }
+            });
+            const remainingItems = homeworkData.filter(hw => itemMap.has(hw.id));
+            homeworkData = [...newConfirmedOrder, ...remainingItems];
+        }
+
+        function attachSortableEvents(item) {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+
+            // 行動裝置觸控拖曳支援
+            item.addEventListener('touchstart', handleTouchStart, { passive: true });
+            item.addEventListener('touchmove', handleTouchMove, { passive: false });
+            item.addEventListener('touchend', handleTouchEnd);
+        }
+
+        function setupConfirmedListContainerDrag(container) {
+            if (!container || container.dataset.dragBound === 'true') return;
+            container.dataset.dragBound = 'true';
+
+            container.addEventListener('dragover', (e) => {
+                if (!draggedElement) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const afterElement = getDragAfterElement(container, e.clientY, '.sortable-item:not(.dragging)');
+                if (afterElement == null) {
+                    container.appendChild(draggedElement);
+                } else if (afterElement !== draggedElement) {
+                    container.insertBefore(draggedElement, afterElement);
+                }
+            });
+
+            container.addEventListener('drop', (e) => {
+                if (!draggedElement) return;
+                e.preventDefault();
+            });
+        }
+
         function handleDragStart(e) {
-            const item = e.target.closest('.sortable-item');
-            if (!item) return;
-            draggedElement = item; draggedHomeworkId = item.dataset.homeworkId;
-            item.classList.add('dragging');
+            if (e.target.closest('button')) {
+                e.preventDefault();
+                return;
+            }
+            const item = e.currentTarget;
+            draggedElement = item;
+            draggedHomeworkId = item.dataset.homeworkId;
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', draggedHomeworkId);
+            setTimeout(() => {
+                if (draggedElement) draggedElement.classList.add('dragging');
+            }, 0);
         }
-        function handleDragEnd(e) {
-            if (draggedElement) { draggedElement.classList.remove('dragging'); draggedElement.setAttribute('draggable', 'false'); }
-            document.querySelectorAll('.sortable-item').forEach(i => i.classList.remove('drag-over'));
-            draggedElement = null; draggedHomeworkId = null;
+
+        function handleDragEnd() {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+            }
+            draggedElement = null;
+            draggedHomeworkId = null;
+            syncHomeworkOrderFromDOM();
+            syncCurrentDateToPending();
+            renderAllHomework();
         }
-        function handleDragOver(e) {
-            e.preventDefault(); e.stopPropagation();
-            if (!draggedElement) return;
-            e.dataTransfer.dropEffect = 'move';
-            const target = e.target.closest('.sortable-item');
-            if (target && target !== draggedElement) {
-                document.querySelectorAll('.sortable-item').forEach(i => i.classList.remove('drag-over'));
-                target.classList.add('drag-over');
+
+        let touchDragItem = null;
+        function handleTouchStart(e) {
+            if (!e.target.closest('.drag-handle')) return;
+            touchDragItem = e.currentTarget;
+            touchDragItem.classList.add('dragging');
+        }
+
+        function handleTouchMove(e) {
+            if (!touchDragItem) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const container = document.getElementById('confirmedList');
+            if (!container) return;
+            const afterElement = getDragAfterElement(container, touch.clientY, '.sortable-item:not(.dragging)');
+            if (afterElement == null) {
+                container.appendChild(touchDragItem);
+            } else if (afterElement !== touchDragItem) {
+                container.insertBefore(touchDragItem, afterElement);
             }
         }
-        function handleDrop(e) {
-            e.preventDefault(); e.stopPropagation();
-            if (!draggedElement || !draggedHomeworkId) return;
-            const target = e.target.closest('.sortable-item');
-            if (target && target !== draggedElement) {
-                const targetId = target.dataset.homeworkId;
-                const draggedIdx = homeworkData.findIndex(hw => hw.id === draggedHomeworkId);
-                const targetIdx = homeworkData.findIndex(hw => hw.id === targetId);
-                if (draggedIdx > -1 && targetIdx > -1) {
-                    const item = homeworkData.splice(draggedIdx, 1)[0];
-                    homeworkData.splice(targetIdx, 0, item);
-                    item.timestamp = new Date().toISOString();
-                    renderAllHomework();
-                }
-            }
-            document.querySelectorAll('.sortable-item').forEach(i => i.classList.remove('drag-over'));
+
+        function handleTouchEnd() {
+            if (!touchDragItem) return;
+            touchDragItem.classList.remove('dragging');
+            touchDragItem = null;
+            syncHomeworkOrderFromDOM();
+            syncCurrentDateToPending();
+            renderAllHomework();
         }
 
         let draggedGlobalElement = null, draggedGlobalEventId = null;
@@ -774,7 +1408,11 @@
 
         function updateHomeworkSubject(id, subject) {
             const hw = homeworkData.find(h => h.id === id);
-            if (hw) { hw.subject = subject; hw.timestamp = new Date().toISOString(); }
+            if (hw) {
+                hw.subject = subject;
+                hw.timestamp = new Date().toISOString();
+                syncCurrentDateToPending();
+            }
         }
 
         function updateHomeworkContent(id, content) {
@@ -787,13 +1425,20 @@
                     btn.disabled = !hasContent;
                     btn.className = `bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm sm:text-base font-medium transition-colors ${hasContent ? '' : 'opacity-50 cursor-not-allowed'}`;
                 }
+                syncCurrentDateToPending();
             }
             if(currentlyFocusedInputId === id) currentlyFocusedCursorPos = document.getElementById(`input_${id}`).selectionStart;
         }
 
         function confirmHomework(id) {
             const hw = homeworkData.find(h => h.id === id);
-            if (hw && hw.content.trim()) { hw.status = 'confirmed'; hw.timestamp = new Date().toISOString(); currentlyFocusedInputId = null; renderAllHomework(); }
+            if (hw && hw.content.trim()) {
+                hw.status = 'confirmed';
+                hw.timestamp = new Date().toISOString();
+                currentlyFocusedInputId = null;
+                syncCurrentDateToPending();
+                renderAllHomework();
+            }
         }
 
         function editHomework(id) {
@@ -802,6 +1447,7 @@
             if (hw) {
                 hw.status = 'editing'; hw.timestamp = new Date().toISOString(); 
                 currentlyFocusedInputId = id;
+                syncCurrentDateToPending();
                 renderAllHomework();
             }
         }
@@ -809,14 +1455,20 @@
         function deleteHomework(id) {
             if (!editMode) return;
             const idx = homeworkData.findIndex(h => h.id === id);
-            if (idx > -1) { homeworkData.splice(idx, 1); currentlyFocusedInputId = null; renderAllHomework(); }
+            if (idx > -1) {
+                homeworkData.splice(idx, 1);
+                currentlyFocusedInputId = null;
+                syncCurrentDateToPending();
+                renderAllHomework();
+            }
         }
 
         function addHomework() {
             if (!editMode) return;
             const hw = new HomeworkItem(null, '國語', '');
-            homeworkData.push(hw); 
+            homeworkData.push(hw);
             currentlyFocusedInputId = hw.id;
+            syncCurrentDateToPending();
             renderAllHomework();
         }
 
@@ -858,29 +1510,34 @@
                                    <input type="date" value="${ev.endDate || ev.date || ''}" onchange="updateGlobalEventField('${ev.id}', 'endDate', this)" class="bg-white border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 flex-1 min-w-[110px]">`
                                 : `<input type="date" value="${ev.date || ''}" onchange="updateGlobalEventField('${ev.id}', 'date', this)" class="bg-white border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 flex-1 min-w-[130px]">`
                             }
-                        </div>`;
+                        </div>
+                    `;
                 }
 
-                const inputHtml = ev.type === 'countdown' 
-                    ? `<div class="flex flex-col sm:flex-row flex-1 gap-2 w-full">
-                           <input type="text" value="${ev.name || ''}" placeholder="活動名稱 (例: 期中考)" oninput="updateGlobalEventField('${ev.id}', 'name', this)" class="flex-1 w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2">
-                           ${dateInputHtml}
-                       </div>`
-                    : `<input type="text" value="${ev.content || ''}" placeholder="輸入跑馬燈宣導訊息..." oninput="updateGlobalEventField('${ev.id}', 'content', this)" class="flex-1 w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2">`;
-                
+                const textValue = ev.type === 'countdown' ? (ev.name || '') : (ev.content || '');
+                const textField = ev.type === 'countdown' ? 'name' : 'content';
+                const placeholder = ev.type === 'countdown' ? '請輸入活動名稱...' : '請輸入跑馬燈訊息...';
+
                 return `
-                <div class="global-sortable-item bg-yellow-50 rounded-xl p-3 sm:p-4 border border-yellow-200 shadow-sm flex flex-col lg:flex-row gap-3 items-start lg:items-center transition-opacity ${isChecked ? '' : 'opacity-50'}" data-event-id="${ev.id}">
-                    <div class="flex items-center shrink-0 w-full lg:w-auto">
-                        <div class="global-drag-handle mr-2 sm:mr-3 text-xl sm:text-2xl cursor-grab hover:cursor-grabbing select-none shrink-0" draggable="false" title="按住拖曳以排序" onmousedown="this.closest('.global-sortable-item').setAttribute('draggable', 'true')" ontouchstart="this.closest('.global-sortable-item').setAttribute('draggable', 'true')">⋮⋮</div>
-                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="updateGlobalEventField('${ev.id}', 'enabled', this)" class="w-5 h-5 text-yellow-600 rounded cursor-pointer mr-2 sm:mr-0">
+                    <div class="global-sortable-item flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-yellow-50/70 p-3 rounded-xl border border-yellow-200 shadow-sm" data-event-id="${ev.id}">
+                        <div class="flex items-center gap-2">
+                            <div class="global-drag-handle text-lg px-1 select-none" title="按住拖曳調整順序">⋮⋮</div>
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="updateGlobalEventField('${ev.id}', 'enabled', this)" class="w-5 h-5 text-yellow-600 rounded focus:ring-yellow-500 cursor-pointer" title="勾選以啟用此項目">
+                            ${typeHtml}
+                        </div>
+                        <input type="text" value="${textValue}" placeholder="${placeholder}" oninput="updateGlobalEventField('${ev.id}', '${textField}', this)" class="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm sm:text-base font-medium focus:ring-2 focus:ring-yellow-400">
+                        ${dateInputHtml}
+                        <button onclick="removeGlobalEvent('${ev.id}')" class="text-red-500 hover:text-red-700 p-1.5 self-end sm:self-center shrink-0" title="刪除">🗑️</button>
                     </div>
-                    ${typeHtml}
-                    ${inputHtml}
-                    <button onclick="removeGlobalEvent('${ev.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded-lg border border-red-100 bg-white ml-auto lg:ml-0 mt-2 lg:mt-0 shrink-0">🗑️</button>
-                </div>`;
+                `;
             }).join('');
-            
-            document.querySelectorAll('.global-sortable-item').forEach(item => {
+
+            container.querySelectorAll('.global-sortable-item').forEach(item => {
+                const handle = item.querySelector('.global-drag-handle');
+                if (handle) {
+                    handle.addEventListener('mousedown', () => item.setAttribute('draggable', 'true'));
+                    handle.addEventListener('mouseup', () => item.setAttribute('draggable', 'false'));
+                }
                 item.addEventListener('dragstart', handleGlobalDragStart);
                 item.addEventListener('dragend', handleGlobalDragEnd);
                 item.addEventListener('dragover', handleGlobalDragOver);
@@ -888,24 +1545,81 @@
             });
         }
 
-        function updateGlobalEventField(id, field, element) {
+        function updateGlobalEventField(id, field, inputElement) {
             const ev = globalEvents.find(e => e.id === id);
-            if (ev) {
-                ev[field] = element.type === 'checkbox' ? element.checked : element.value;
-                if (field === 'enabled' || field === 'type' || field === 'isRange') {
-                    if (field === 'type' && element.value === 'countdown' && !ev.date) {
-                        ev.date = new Date().toISOString().split('T')[0];
-                        ev.name = ev.content || '新活動';
-                    }
-                    if (field === 'isRange' && element.checked) {
-                        ev.startDate = ev.date || new Date().toISOString().split('T')[0];
-                        ev.endDate = ev.startDate;
-                    } else if (field === 'isRange' && !element.checked) {
-                        ev.date = ev.startDate || new Date().toISOString().split('T')[0];
-                    }
-                    renderGlobalEventsEditor();
+            if (!ev) return;
+
+            if (field === 'enabled') {
+                ev.enabled = inputElement.checked;
+            } else if (field === 'isRange') {
+                ev.isRange = inputElement.checked;
+                if (ev.isRange) {
+                    ev.startDate = ev.startDate || ev.date || dateKeyISO(currentDate);
+                    ev.endDate = ev.endDate || ev.date || dateKeyISO(currentDate);
+                } else {
+                    ev.date = ev.date || ev.startDate || dateKeyISO(currentDate);
                 }
+                renderGlobalEventsEditor();
+            } else if (field === 'type') {
+                ev.type = inputElement.value;
+                if (ev.type === 'countdown' && !ev.date && !ev.startDate) {
+                    ev.date = dateKeyISO(currentDate);
+                }
+                renderGlobalEventsEditor();
+            } else {
+                ev[field] = inputElement.value;
+            }
+            updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
+        }
+
+        async function loadGlobalEvents(skipJitter = false) {
+            let controller = new AbortController();
+            let timeoutId = setTimeout(() => controller.abort(), 25000);
+            try {
+                if (!skipJitter) {
+                    await new Promise(r => setTimeout(r, Math.floor(Math.random() * 2500)));
+                }
+                const params = new URLSearchParams({ action: 'loadGlobal', classId: CACHE_CONFIG.CLASS_ID, token: 'homework2025', _t: Date.now() });
+                const response = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`, { signal: controller.signal });
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const responseText = await response.text();
+                if (responseText.trim().startsWith('<')) { throw new Error('HTML_RETURNED'); }
+                
+                const result = JSON.parse(responseText);
+                if (result.success && result.data) {
+                    const parsedData = parseRawData(result.data);
+                    const safeObj = (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) ? parsedData : {};
+                    currentGlobalDataString = typeof result.data === 'string' ? result.data : JSON.stringify(result.data);
+
+                    if (safeObj.events) globalEvents = safeObj.events;
+                    if (safeObj.config) {
+                        globalConfig = safeObj.config;
+                        let speed = parseInt(globalConfig.marqueeSpeed, 10);
+                        globalConfig.marqueeSpeed = (isNaN(speed) || speed < 50) ? 200 : (speed > 400 ? 400 : speed);
+                        if (!globalConfig.password) globalConfig.password = '0944';
+                        if (!Array.isArray(globalConfig.memos)) globalConfig.memos = [];
+                    }
+
+                    updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
+                    updateMemoCountBadge();
+                    if (editMode) {
+                        renderGlobalEventsEditor();
+                        renderMemoList();
+                        const slider = document.getElementById('marqueeSpeedSlider');
+                        const display = document.getElementById('speedValueDisplay');
+                        if (slider && display) {
+                            slider.value = globalConfig.marqueeSpeed;
+                            display.textContent = globalConfig.marqueeSpeed + 's';
+                        }
+                    }
+                }
+            } catch (e) {
+                if (e.message === 'HTML_RETURNED') { console.warn('後端 API 權限設定錯誤'); } 
+                else { console.warn('無法載入獨立跑馬燈設定。', e); }
                 updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
+            } finally {
+                clearTimeout(timeoutId);
             }
         }
 
@@ -923,58 +1637,27 @@
 
         async function saveGlobalEventsInstantly() {
             try {
-                const dataToSave = { events: globalEvents, config: globalConfig };
+                const payloadObj = { events: globalEvents, config: globalConfig };
+                const dataString = JSON.stringify(payloadObj);
+                if (dataString === currentGlobalDataString) return true;
+
                 const formData = new FormData();
                 formData.append('action', 'saveGlobal');
                 formData.append('classId', CACHE_CONFIG.CLASS_ID);
-                formData.append('data', JSON.stringify(dataToSave));
+                formData.append('data', dataString);
                 formData.append('token', 'homework2025');
 
                 const response = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: formData, cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                currentGlobalDataString = JSON.stringify(dataToSave);
-            } catch (e) {
-                console.error('儲存全域跑馬燈失敗:', e);
-            }
-        }
-
-        async function loadGlobalEvents() {
-            try {
-                const params = new URLSearchParams({ action: 'loadGlobal', classId: CACHE_CONFIG.CLASS_ID, token: 'homework2025', _t: Date.now() });
-                const response = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
-                if (!response.ok) throw new Error('Network response was not ok');
-                
-                const responseText = await response.text();
-                if (responseText.trim().startsWith('<')) { throw new Error('HTML_RETURNED'); }
-                
-                const result = JSON.parse(responseText);
-                if (result.success && result.data) {
-                    const parsedData = parseRawData(result.data);
-                    const safeObj = (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) ? parsedData : {};
-                    currentGlobalDataString = typeof result.data === 'string' ? result.data : JSON.stringify(result.data);
-
-                    if (safeObj.events) globalEvents = safeObj.events;
-                    if (safeObj.config) {
-                        globalConfig = safeObj.config;
-                        let speed = parseInt(globalConfig.marqueeSpeed, 10);
-                        globalConfig.marqueeSpeed = (isNaN(speed) || speed < 50) ? 200 : (speed > 400 ? 400 : speed);
-                        if(!globalConfig.password) globalConfig.password = '0944';
-                    }
-
-                    updateCountdown(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime());
-                    if (editMode) {
-                        renderGlobalEventsEditor();
-                        const slider = document.getElementById('marqueeSpeedSlider');
-                        const display = document.getElementById('speedValueDisplay');
-                        if (slider && display) {
-                            slider.value = globalConfig.marqueeSpeed;
-                            display.textContent = globalConfig.marqueeSpeed + 's';
-                        }
-                    }
+                const result = JSON.parse(await response.text());
+                if (result.success) {
+                    currentGlobalDataString = dataString;
+                    return true;
                 }
+                return false;
             } catch (e) {
-                if (e.message === 'HTML_RETURNED') { console.warn('後端 API 權限設定錯誤'); } 
-                else { console.warn('無法載入獨立跑馬燈設定。', e); }
+                console.warn('儲存全域設定失敗:', e);
+                return false;
             }
         }
 
@@ -982,35 +1665,33 @@
             try {
                 const formData = new FormData();
                 formData.append('action', 'save');
-                formData.append('dateKey', dateKey); 
+                formData.append('dateKey', dateKey);
                 formData.append('classId', CACHE_CONFIG.CLASS_ID);
                 formData.append('data', JSON.stringify(data));
                 formData.append('token', 'homework2025');
-                formData.append('userAgent', navigator.userAgent || "Unknown Browser");
+                formData.append('userAgent', navigator.userAgent || 'Unknown Browser');
 
                 const response = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: formData, cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
                 const responseText = await response.text();
-                let result;
-                try {
-                    result = JSON.parse(responseText);
-                } catch (e) {
-                    if (responseText.toLowerCase().includes('success')) { result = { success: true }; } 
-                    else { throw new Error('伺服器回傳格式錯誤'); }
-                }
-                
-                if (result.success || result.status === 'success') return { success: true, message: '作業已成功儲存' };
-                else throw new Error(result.error || '儲存失敗');
-            } catch (e) { return { success: false, message: e.message }; }
+                if (responseText.trim().startsWith('<')) throw new Error('HTML_RETURNED');
+                const result = JSON.parse(responseText);
+                if (result.success) return { success: true };
+                return { success: false, message: result.error || '儲存失敗' };
+            } catch (e) {
+                return { success: false, message: e.message || '網路連線異常' };
+            }
         }
 
-        async function loadFromCloudWithCache(dateKey, isPrefetch = false) {
+        async function loadFromCloudWithCache(dateKey, isPrefetch = false, skipJitter = false) {
             if (inflightRequests.has(dateKey)) return await inflightRequests.get(dateKey);
             
             const loadPromise = (async () => {
+                if (!skipJitter && isPrefetch) {
+                    await new Promise(r => setTimeout(r, Math.floor(Math.random() * 3500)));
+                }
                 let controller = new AbortController();
-                let timeoutId = setTimeout(() => controller.abort(), 15000);
+                let timeoutId = setTimeout(() => controller.abort(), 25000);
                 if (!isPrefetch) {
                     if (currentLoadController) currentLoadController.abort();
                     currentLoadController = controller;
@@ -1045,10 +1726,24 @@
         }
 
         async function loadHomeworkWithSWR(dateKey) {
+            // 若在編輯模式且該日期已有暫存修改，優先讀取暫存區，確保跨日翻閱不遺失草稿
+            if (editMode && pendingEdits.has(dateKey)) {
+                homeworkData = cloneHomeworkList(pendingEdits.get(dateKey));
+                renderAllHomework();
+                renderPendingEditsBar();
+                if (activeAssistantTab === 'history') loadRecentHistoryComparison();
+                return;
+            }
+
             let cacheItem = getFromMemoryCache(dateKey);
             if (cacheItem && cacheItem.data) {
-                if (dateKeyISO(currentDate) === dateKey) { homeworkData = [...cacheItem.data]; renderAllHomework(); }
+                if (dateKeyISO(currentDate) === dateKey) { homeworkData = cloneHomeworkList(cacheItem.data); renderAllHomework(); }
             } else { homeworkData = []; renderAllHomework(true); }
+
+            if (editMode) {
+                renderPendingEditsBar();
+                if (activeAssistantTab === 'history') loadRecentHistoryComparison();
+            }
             
             try {
                 let cloudResult = await loadFromCloudWithCache(dateKey);
@@ -1065,27 +1760,95 @@
                     }
                 }
                 
-                if (dateKeyISO(currentDate) !== dateKey) return; 
+                if (dateKeyISO(currentDate) !== dateKey) return;
+                // 若在等待雲端期間老師已經開始編輯當天，則不覆蓋老師剛打的內容
+                if (editMode && pendingEdits.has(dateKey)) return;
+
                 if ((!cacheItem || cacheItem.hash !== cloudResult.hash) && cloudResult.data !== undefined) {
-                    homeworkData = [...cloudResult.data]; renderAllHomework();
+                    homeworkData = cloneHomeworkList(cloudResult.data);
+                    renderAllHomework();
                 }
             } catch (e) {
                 if (e.name !== 'AbortError' && e.message === 'HTML_RETURNED') { showToast('載入失敗：後端 API 權限設定錯誤！請檢查 GAS 部署權限是否為「所有人」。', 'error'); }
                 if (dateKeyISO(currentDate) !== dateKey) return; 
-                if (!cacheItem) { homeworkData = []; renderAllHomework(); }
+                if (!cacheItem && !(editMode && pendingEdits.has(dateKey))) { homeworkData = []; renderAllHomework(); }
             }
         }
 
-        async function saveHomeworkInstantly() {
+        async function saveAllPendingEdits() {
             if (isSaving) return { success: false, message: '正在儲存中' };
             isSaving = true;
             try {
-                const dateKey = dateKeyISO(currentDate);
-                const legacyData = homeworkData.map(hw => ({ text: hw.content, subject: hw.subject, confirmed: hw.status === 'confirmed', timestamp: hw.timestamp }));
-                const result = await saveToGoogleSheets(dateKey, legacyData);
-                if (result.success) writeToCache(dateKey, normalizeHomeworkData(legacyData), calculateStableHash(legacyData));
-                return result;
-            } finally { isSaving = false; }
+                const currKey = dateKeyISO(currentDate);
+                // 整理當前畫面作業並同步至暫存
+                autoConfirmCurrentEditingItems();
+                if (!pendingEdits.has(currKey)) {
+                    pendingEdits.set(currKey, cloneHomeworkList(homeworkData));
+                }
+
+                // 整理所有待儲存日期的資料
+                const batchPayload = {};
+                pendingEdits.forEach((items, dKey) => {
+                    const cleaned = items.filter(hw => {
+                        if (hw.status === 'editing') {
+                            if (hw.content && hw.content.trim()) { hw.status = 'confirmed'; return true; }
+                            return false;
+                        }
+                        return true;
+                    });
+                    batchPayload[dKey] = cleaned.map(hw => ({
+                        text: hw.content,
+                        subject: hw.subject,
+                        confirmed: hw.status === 'confirmed',
+                        timestamp: hw.timestamp
+                    }));
+                });
+
+                const dateKeys = Object.keys(batchPayload);
+                if (dateKeys.length === 0) return { success: true };
+
+                // 若修改超過 1 天，優先嘗試呼叫 saveBatch 一次寫入
+                if (dateKeys.length > 1) {
+                    try {
+                        const formData = new FormData();
+                        formData.append('action', 'saveBatch');
+                        formData.append('classId', CACHE_CONFIG.CLASS_ID);
+                        formData.append('batchData', JSON.stringify(batchPayload));
+                        formData.append('token', 'homework2025');
+                        formData.append('userAgent', navigator.userAgent || 'Unknown Browser');
+
+                        const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: formData, cache: 'no-store' });
+                        if (resp.ok) {
+                            const res = JSON.parse(await resp.text());
+                            if (res && res.success) {
+                                dateKeys.forEach(k => {
+                                    const legacy = batchPayload[k];
+                                    writeToCache(k, normalizeHomeworkData(legacy), calculateStableHash(legacy));
+                                });
+                                pendingEdits.clear();
+                                clearPendingEditsLocal();
+                                return { success: true, count: dateKeys.length };
+                            }
+                        }
+                    } catch (batchErr) {
+                        // 自動降級為逐日儲存
+                    }
+                }
+
+                // 單日儲存或降級逐日儲存
+                for (const k of dateKeys) {
+                    const legacyData = batchPayload[k];
+                    const res = await saveToGoogleSheets(k, legacyData);
+                    if (!res.success) return { success: false, message: `${k} 儲存失敗：${res.message}` };
+                    writeToCache(k, normalizeHomeworkData(legacyData), calculateStableHash(legacyData));
+                    pendingEdits.delete(k);
+                }
+
+                clearPendingEditsLocal();
+                return { success: true, count: dateKeys.length };
+            } finally {
+                isSaving = false;
+            }
         }
 
         async function loadHomework() { await loadHomeworkWithSWR(dateKeyISO(currentDate)); }
@@ -1093,18 +1856,11 @@
         async function toggleEditMode() {
             if (!editMode) { showCustomPasswordDialog(); return; }
 
-            homeworkData.forEach(hw => {
-                if (hw.status === 'editing') {
-                    if (hw.content.trim()) hw.status = 'confirmed';
-                    else homeworkData = homeworkData.filter(h => h.id !== hw.id);
-                }
-            });
-
             setEditBtnBusy(true);
 
             let saveResult;
             try {
-                saveResult = await saveHomeworkInstantly();
+                saveResult = await saveAllPendingEdits();
                 await saveGlobalEventsInstantly(); 
             } catch (e) {
                 saveResult = { success: false, message: '儲存錯誤' };
@@ -1115,27 +1871,41 @@
             if (saveResult && saveResult.success) {
                 editMode = false;
                 updateEditModeUI();
+                const savedCount = saveResult.count || 1;
+                showToast(savedCount > 1 ? `已成功儲存 ${savedCount} 天的作業與設定！` : '作業與設定已成功儲存！', 'success');
                 setTimeout(async () => { await manualRefresh(true); }, 500);
             } else { showToast(saveResult?.message || '儲存失敗', 'error'); }
         }
 
         function updateEditModeUI() {
             const btn = document.getElementById('editModeBtn');
+            const dividerToggleWrapper = document.getElementById('dividerToggleWrapper');
+            const assistantPanel = document.getElementById('teacherAssistantPanel');
             if (editMode) {
                 document.getElementById('editIcon').textContent = '🔓'; document.getElementById('editText').textContent = '退出編輯';
                 btn.className = 'group relative w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-xl shadow-lg flex justify-center items-center space-x-2';
                 document.getElementById('addHomeworkBtn').style.display = 'flex';
+                if (dividerToggleWrapper) dividerToggleWrapper.style.display = 'inline-flex';
+                if (assistantPanel) assistantPanel.style.display = 'block';
                 document.getElementById('marqueeEditSection').style.display = 'block';
                 document.getElementById('sortModeIndicator').style.display = 'block';
-                renderGlobalEventsEditor(); stopBackgroundUpdate();
+                renderPendingEditsBar();
+                renderGlobalEventsEditor();
+                renderMemoList();
+                loadRecentHistoryComparison();
+                stopBackgroundUpdate();
             } else {
                 document.getElementById('editIcon').textContent = '🔐'; document.getElementById('editText').textContent = '編輯模式';
                 btn.className = 'group relative w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-xl shadow-lg flex justify-center items-center space-x-2';
                 document.getElementById('addHomeworkBtn').style.display = 'none';
+                if (dividerToggleWrapper) dividerToggleWrapper.style.display = 'none';
+                if (assistantPanel) assistantPanel.style.display = 'none';
+                document.getElementById('pendingEditsBar').style.display = 'none';
                 document.getElementById('marqueeEditSection').style.display = 'none';
                 document.getElementById('sortModeIndicator').style.display = 'none';
                 startBackgroundUpdate();
             }
+            renderAllHomework();
         }
 
         function showCustomPasswordDialog() {
@@ -1168,9 +1938,27 @@
             const entered = normalizePassword(input?.value);
             const targetPass = normalizePassword(globalConfig.password || '0944');
             
-            if (entered === targetPass) {
-                editMode = true; updateEditModeUI(); document.querySelector('.password-dialog-overlay').remove();
-                showToast('已進入編輯模式', 'success'); renderAllHomework();
+            if (entered === targetPass || (!targetPass && entered === '0944')) {
+                editMode = true;
+                // 檢查是否有先前未儲存的瀏覽器本地草稿
+                try {
+                    const savedRaw = localStorage.getItem(PENDING_STORAGE_KEY);
+                    if (savedRaw) {
+                        const parsed = JSON.parse(savedRaw);
+                        if (parsed && parsed.edits && (Date.now() - parsed.updatedAt < 24 * 3600 * 1000)) {
+                            Object.entries(parsed.edits).forEach(([k, arr]) => {
+                                pendingEdits.set(k, normalizeHomeworkData(arr));
+                            });
+                            if (pendingEdits.has(dateKeyISO(currentDate))) {
+                                homeworkData = cloneHomeworkList(pendingEdits.get(dateKeyISO(currentDate)));
+                            }
+                        }
+                    }
+                } catch (e) {}
+                updateEditModeUI();
+                document.querySelector('.password-dialog-overlay').remove();
+                showToast('已進入編輯模式（支援跨日編輯與一次儲存）', 'success');
+                renderAllHomework();
             } else { showToast('密碼錯誤！', 'error'); input.value = ''; input.focus(); }
         }
 
@@ -1186,11 +1974,12 @@
             if (refreshIcon) refreshIcon.classList.add('animate-spin');
             
             const dateKey = dateKeyISO(currentDate);
+            const previousData = cloneHomeworkList(homeworkData);
             memoryCache.delete(getCacheKey(dateKey));
             
             try {
                 if (currentLoadController) currentLoadController.abort();
-                let cloudResult = await loadFromCloudWithCache(dateKey);
+                let cloudResult = await loadFromCloudWithCache(dateKey, false, true);
                 
                 if (!cloudResult || !cloudResult.data || cloudResult.data.length === 0) {
                     const padMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
@@ -1203,23 +1992,29 @@
                     let targetFallback = (dateKey === paddedKey) ? unpaddedKey : paddedKey;
                     
                     try {
-                        const fallbackResult = await loadFromCloudWithCache(targetFallback, true);
+                        const fallbackResult = await loadFromCloudWithCache(targetFallback, true, true);
                         if (fallbackResult && fallbackResult.data && fallbackResult.data.length > 0) cloudResult = fallbackResult;
                     } catch(e) {}
                 }
                 
                 if (dateKeyISO(currentDate) === dateKey) {
-                    homeworkData = [...cloudResult.data]; renderAllHomework();
-                    await loadGlobalEvents(); 
+                    if (editMode && pendingEdits.has(dateKey)) {
+                        homeworkData = cloneHomeworkList(pendingEdits.get(dateKey));
+                    } else {
+                        homeworkData = [...cloudResult.data];
+                    }
+                    renderAllHomework();
+                    await loadGlobalEvents(true); 
                     if (!silent) showToast('資料已更新至最新！', 'success');
                 }
             } catch (e) { 
                 if (e.name !== 'AbortError') {
                     if (e.message === 'HTML_RETURNED') { showToast('載入失敗：後端 API 權限設定錯誤！請檢查是否設為「所有人」。', 'error'); }
-                    else if (!silent) { showToast('載入失敗，請稍後重試', 'error'); }
+                    else if (!silent) { showToast('連線不穩或伺服器忙碌，已保留目前畫面，請稍後重試', 'error'); }
                 }
                 if (dateKeyISO(currentDate) === dateKey && e.name !== 'AbortError') {
-                    homeworkData = []; renderAllHomework(); 
+                    homeworkData = previousData;
+                    renderAllHomework(); 
                 }
             } finally {
                 if (refreshIcon) refreshIcon.classList.remove('animate-spin');
@@ -1321,6 +2116,10 @@
                 }
             }
 
+            if (msgs.length === 0) {
+                msgs.push('📢 歡迎使用僑平國小 605 班級聯絡簿系統！');
+            }
+
             if (msgs.length > 0) {
                 countdownMarquee.style.display = 'flex';
                 const baseMsg = msgs.join('<span class="mx-8 text-yellow-400 font-normal">|</span>') + '<span class="mx-8 text-yellow-400 font-normal">|</span>';
@@ -1382,7 +2181,8 @@
 
         let navLocked = false;
         function moveDay(step) {
-            if (navLocked) return; navLocked = true; setTimeout(() => navLocked = false, 300);
+            if (navLocked) return; navLocked = true; setTimeout(() => navLocked = false, 200);
+            if (editMode) autoConfirmCurrentEditingItems();
             do {
                 currentDate.setDate(currentDate.getDate() + step);
                 if (currentDate < firstSemesterStart) { currentDate = new Date(firstSemesterStart); break; }
@@ -1393,7 +2193,8 @@
         function previousDay() { moveDay(-1); }
         function nextDay() { moveDay(1); }
         function today() {
-            if (navLocked) return; navLocked = true; setTimeout(() => navLocked = false, 300);
+            if (navLocked) return; navLocked = true; setTimeout(() => navLocked = false, 200);
+            if (editMode) autoConfirmCurrentEditingItems();
             currentDate = new Date(); 
             if (currentDate.getDay() === 0 || currentDate.getDay() === 6) moveDay(1); 
             else updateDateDisplay();
@@ -1412,6 +2213,7 @@
             if (d < firstSemesterStart || d > secondSemesterEnd) return showToast('所選日期超出學期範圍！', 'warning');
             if (d.getDay() === 0 || d.getDay() === 6) return showToast('週末沒有上課，請選擇平日！', 'warning');
             
+            if (editMode) autoConfirmCurrentEditingItems();
             currentDate = d; document.querySelector('.date-picker-overlay')?.remove();
             showToast('正在載入所選日期...', 'success'); await updateDateDisplay();
         }
