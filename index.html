@@ -290,16 +290,25 @@
                     <div id="assistantBody" class="p-3 sm:p-4">
                         <!-- 方案 B：近期 3~5 天作業並排對照 -->
                         <div id="assistantHistorySection">
-                            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                                <span class="text-xs sm:text-sm text-slate-600 font-medium">💡 檢視此日期前幾個上課日的作業，點擊「➕ 帶入」即可複製到今日並修改頁數：</span>
-                                <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
-                                    <button type="button" id="historyDays3Btn" onclick="setHistoryDaysCount(3)" class="px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700">前 3 天</button>
-                                    <button type="button" id="historyDays5Btn" onclick="setHistoryDaysCount(5)" class="px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100">前 5 天</button>
-                                    <button type="button" onclick="loadRecentHistoryComparison(true)" class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-md font-bold" title="重新讀取歷史作業">🔄</button>
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+                                <span class="text-xs sm:text-sm text-slate-600 font-medium">💡 點擊任一歷史作業即可「直接帶入今日」並修改頁數：</span>
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <!-- 視角切換 -->
+                                    <div class="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                                        <button type="button" id="viewModeListBtn" onclick="setHistoryViewMode('list')" class="px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-600 text-white transition-colors" title="每日橫列展開，完整顯示不截斷">📑 條列全覽</button>
+                                        <button type="button" id="viewModeSubjectBtn" onclick="setHistoryViewMode('subject')" class="px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors" title="依科目分類整理，快速查閱上次出到第幾頁">📚 依科目查進度</button>
+                                        <button type="button" id="viewModeCardBtn" onclick="setHistoryViewMode('card')" class="px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors" title="寬版卡片檢視">🗂️ 卡片</button>
+                                    </div>
+                                    <!-- 天數切換 -->
+                                    <div class="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                                        <button type="button" id="historyDays3Btn" onclick="setHistoryDaysCount(3)" class="px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700 transition-colors">前 3 天</button>
+                                        <button type="button" id="historyDays5Btn" onclick="setHistoryDaysCount(5)" class="px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">前 5 天</button>
+                                        <button type="button" onclick="loadRecentHistoryComparison(true)" class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-md font-bold" title="重新讀取歷史作業">🔄</button>
+                                    </div>
                                 </div>
                             </div>
-                            <div id="historyComparisonGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                <!-- 由 JS 動態渲染近期對照卡片 -->
+                            <div id="historyComparisonGrid" class="space-y-2">
+                                <!-- 由 JS 動態渲染近期對照內容 -->
                             </div>
                         </div>
 
@@ -420,7 +429,7 @@
 
         <!-- 版權與版本宣告 -->
         <footer class="mt-8 mb-4 text-center text-gray-400 text-sm font-medium">
-            大榮老師製作 &copy; 2026 | Version 4.0 (v4.0)
+            大榮老師製作 &copy; 2026 | Version 4.1 (v4.1)
         </footer>
     </div>
 
@@ -435,6 +444,7 @@
         const pendingEdits = new Map();
         const PENDING_STORAGE_KEY = 'gpes605_pending_edits_v4';
         let historyDaysCount = 3;
+        let historyViewMode = 'list'; // 'list' | 'subject' | 'card'
         let activeAssistantTab = 'history';
         let assistantCollapsed = false;
 
@@ -649,19 +659,42 @@
             if (btn) btn.textContent = assistantCollapsed ? '▶️ 展開助手' : '🔽 收合助手';
         }
 
+        function setHistoryViewMode(mode) {
+            historyViewMode = mode;
+            const btnList = document.getElementById('viewModeListBtn');
+            const btnSubj = document.getElementById('viewModeSubjectBtn');
+            const btnCard = document.getElementById('viewModeCardBtn');
+            const activeCls = 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-600 text-white transition-colors';
+            const inactiveCls = 'px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors';
+            if (btnList) btnList.className = mode === 'list' ? activeCls : inactiveCls;
+            if (btnSubj) btnSubj.className = mode === 'subject' ? activeCls : inactiveCls;
+            if (btnCard) btnCard.className = mode === 'card' ? activeCls : inactiveCls;
+            loadRecentHistoryComparison();
+        }
+
         function setHistoryDaysCount(count) {
             historyDaysCount = count;
             const btn3 = document.getElementById('historyDays3Btn');
             const btn5 = document.getElementById('historyDays5Btn');
-            const grid = document.getElementById('historyComparisonGrid');
             if (btn3 && btn5) {
-                btn3.className = count === 3 ? 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700' : 'px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100';
-                btn5.className = count === 5 ? 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700' : 'px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100';
-            }
-            if (grid) {
-                grid.className = count === 5 ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2' : 'grid grid-cols-1 sm:grid-cols-3 gap-2.5';
+                btn3.className = count === 3 ? 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700 transition-colors' : 'px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors';
+                btn5.className = count === 5 ? 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700 transition-colors' : 'px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors';
             }
             loadRecentHistoryComparison();
+        }
+
+        function getSubjectBadgeStyle(subject) {
+            const styles = {
+                '國語': 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400',
+                '數學': 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100 hover:border-blue-400',
+                '自然': 'bg-teal-50 text-teal-900 border-teal-200 hover:bg-teal-100 hover:border-teal-400',
+                '社會': 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100 hover:border-amber-400',
+                '均一': 'bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100 hover:border-purple-400',
+                '週記': 'bg-rose-50 text-rose-900 border-rose-200 hover:bg-rose-100 hover:border-rose-400',
+                '作文': 'bg-pink-50 text-pink-900 border-pink-200 hover:bg-pink-100 hover:border-pink-400',
+                '其它': 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100 hover:border-slate-400'
+            };
+            return styles[subject] || styles['其它'];
         }
 
         function getPreviousSchoolDays(baseDate, count) {
@@ -689,25 +722,138 @@
             const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
 
             if (prevDays.length === 0) {
-                grid.innerHTML = `<div class="col-span-full text-center py-4 text-slate-400 text-sm">此日期之前無本學期上課日紀錄</div>`;
+                grid.className = 'space-y-2';
+                grid.innerHTML = `<div class="text-center py-4 text-slate-400 text-sm">此日期之前無本學期上課日紀錄</div>`;
                 return;
             }
 
-            // 先用快取或暫存渲染骨架
-            const renderCards = () => {
+            const getDayItems = (dt) => {
+                const k = dateKeyISO(dt);
+                if (pendingEdits.has(k)) return pendingEdits.get(k);
+                const c = getFromMemoryCache(k);
+                if (c && Array.isArray(c.data)) return c.data;
+                return null;
+            };
+
+            const renderContent = () => {
+                // 模式 1：📑 條列全覽 (每日一橫列，作業橫向自動換行展開，100% 顯示完整內容)
+                if (historyViewMode === 'list') {
+                    grid.className = 'space-y-2';
+                    grid.innerHTML = prevDays.map(dt => {
+                        const k = dateKeyISO(dt);
+                        const m = dt.getMonth() + 1;
+                        const d = dt.getDate();
+                        const w = weekdays[dt.getDay()];
+                        const items = getDayItems(dt);
+
+                        let rightHtml = '';
+                        if (items === null) {
+                            rightHtml = `<span class="text-xs text-slate-400 py-1">載入中...</span>`;
+                        } else {
+                            const validItems = items.filter(hw => !isSeparatorItem(hw) && hw.content && hw.content.trim());
+                            if (validItems.length === 0) {
+                                rightHtml = `<span class="text-xs text-slate-400 py-1">無指派作業</span>`;
+                            } else {
+                                rightHtml = validItems.map((hw, idx) => {
+                                    const shortSubj = {'國語':'國','數學':'數','社會':'社','自然':'自','其它':''}[hw.subject] ?? (hw.subject + ' ');
+                                    const label = `${idx + 1}. ${shortSubj}${hw.content}`;
+                                    const safeSubj = hw.subject.replace(/'/g, "\\'");
+                                    const safeContent = hw.content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                    const colorCls = getSubjectBadgeStyle(hw.subject);
+                                    return `
+                                        <button type="button" onclick="copyHistoryToToday('${safeSubj}', '${safeContent}')" class="group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-95 text-left ${colorCls}" title="點擊直接帶入今日作業">
+                                            <span class="break-words">${label}</span>
+                                            <span class="w-4 h-4 rounded-full bg-white/80 group-hover:bg-indigo-600 group-hover:text-white text-indigo-600 inline-flex items-center justify-center text-xs font-black transition-colors shrink-0">+</span>
+                                        </button>
+                                    `;
+                                }).join('');
+                            }
+                        }
+
+                        return `
+                            <div class="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm flex flex-col sm:flex-row sm:items-center gap-2">
+                                <div class="flex items-center justify-between sm:justify-start gap-1.5 sm:w-28 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-100 pb-1.5 sm:pb-0 sm:pr-2">
+                                    <button type="button" onclick="jumpToDateKey('${k}')" class="font-bold text-xs sm:text-sm text-indigo-700 hover:underline flex items-center gap-1" title="點擊切換至此日期編輯">
+                                        <span>${m}/${d} (週${w})</span>
+                                    </button>
+                                    ${pendingEdits.has(k) ? '<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">已改</span>' : ''}
+                                </div>
+                                <div class="flex flex-wrap items-center gap-1.5 flex-1">
+                                    ${rightHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    return;
+                }
+
+                // 模式 2：📚 依科目查進度 (自動將近幾天的作業按科目分組，查頁數最直覺)
+                if (historyViewMode === 'subject') {
+                    grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5';
+                    const subjectGroups = new Map([
+                        ['國語', []], ['數學', []], ['自然', []], ['社會', []], ['均一', []], ['其它與專題', []]
+                    ]);
+
+                    prevDays.forEach(dt => {
+                        const m = dt.getMonth() + 1;
+                        const d = dt.getDate();
+                        const w = weekdays[dt.getDay()];
+                        const items = getDayItems(dt) || [];
+                        items.filter(hw => !isSeparatorItem(hw) && hw.content && hw.content.trim()).forEach(hw => {
+                            const key = subjectGroups.has(hw.subject) ? hw.subject : '其它與專題';
+                            subjectGroups.get(key).push({
+                                dateLabel: `${m}/${d}(${w})`,
+                                dateKey: dateKeyISO(dt),
+                                subject: hw.subject,
+                                content: hw.content
+                            });
+                        });
+                    });
+
+                    let groupHtml = '';
+                    subjectGroups.forEach((records, groupName) => {
+                        if (records.length === 0 && groupName === '其它與專題') return;
+                        const itemsHtml = records.length === 0
+                            ? `<div class="text-xs text-slate-400 py-2 text-center">近 ${historyDaysCount} 天無紀錄</div>`
+                            : records.map(rec => {
+                                const shortSubj = {'國語':'國','數學':'數','社會':'社','自然':'自','其它':''}[rec.subject] ?? (rec.subject + ' ');
+                                const safeSubj = rec.subject.replace(/'/g, "\\'");
+                                const safeContent = rec.content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                return `
+                                    <button type="button" onclick="copyHistoryToToday('${safeSubj}', '${safeContent}')" class="group w-full flex items-center justify-between gap-2 bg-slate-50 hover:bg-indigo-50 border border-slate-200/80 hover:border-indigo-300 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm transition-all text-left" title="點擊帶入今日作業">
+                                        <div class="flex items-start gap-1.5 min-w-0 flex-1">
+                                            <span class="px-1.5 py-0.2 bg-white border border-slate-200 text-slate-500 rounded text-[11px] font-bold shrink-0">${rec.dateLabel}</span>
+                                            <span class="font-bold text-slate-800 break-words">${shortSubj}${rec.content}</span>
+                                        </div>
+                                        <span class="w-5 h-5 rounded-full bg-indigo-100 group-hover:bg-indigo-600 text-indigo-700 group-hover:text-white inline-flex items-center justify-center text-xs font-black shrink-0 transition-colors">+</span>
+                                    </button>
+                                `;
+                            }).join('');
+
+                        groupHtml += `
+                            <div class="bg-white rounded-xl border border-slate-200 p-2.5 shadow-sm">
+                                <div class="font-bold text-xs sm:text-sm text-slate-700 border-b border-slate-100 pb-1.5 mb-2 flex items-center justify-between">
+                                    <span>📘 ${groupName}</span>
+                                    <span class="text-[11px] text-slate-400 font-normal">共 ${records.length} 筆</span>
+                                </div>
+                                <div class="space-y-1.5">
+                                    ${itemsHtml}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    grid.innerHTML = groupHtml;
+                    return;
+                }
+
+                // 模式 3：🗂️ 寬版卡片檢視 (最多 3 欄寬版並排，自動換行不截斷文字)
+                grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5';
                 grid.innerHTML = prevDays.map(dt => {
                     const k = dateKeyISO(dt);
                     const m = dt.getMonth() + 1;
                     const d = dt.getDate();
                     const w = weekdays[dt.getDay()];
-                    let items = null;
-
-                    if (pendingEdits.has(k)) {
-                        items = pendingEdits.get(k);
-                    } else {
-                        const c = getFromMemoryCache(k);
-                        if (c && Array.isArray(c.data)) items = c.data;
-                    }
+                    const items = getDayItems(dt);
 
                     let bodyHtml = '';
                     if (items === null) {
@@ -722,20 +868,19 @@
                                 const label = `${idx + 1}. ${shortSubj}${hw.content}`;
                                 const safeSubj = hw.subject.replace(/'/g, "\\'");
                                 const safeContent = hw.content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                const colorCls = getSubjectBadgeStyle(hw.subject);
                                 return `
-                                    <div class="flex items-center justify-between gap-1.5 bg-slate-50 hover:bg-indigo-50/70 px-2 py-1.5 rounded-lg border border-slate-200/80 text-xs sm:text-sm">
-                                        <span class="font-medium text-slate-700 truncate" title="${label}">${label}</span>
-                                        <button type="button" onclick="copyHistoryToToday('${safeSubj}', '${safeContent}')" class="shrink-0 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 px-1.5 py-0.5 rounded text-[11px] font-bold transition-colors" title="帶入今日作業並修改頁碼">
-                                            ➕ 帶入
-                                        </button>
-                                    </div>
+                                    <button type="button" onclick="copyHistoryToToday('${safeSubj}', '${safeContent}')" class="group w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-xs sm:text-sm font-bold transition-all text-left ${colorCls}" title="點擊直接帶入今日作業">
+                                        <span class="break-words leading-snug flex-1">${label}</span>
+                                        <span class="w-5 h-5 rounded-full bg-white/90 group-hover:bg-indigo-600 text-indigo-600 group-hover:text-white inline-flex items-center justify-center text-xs font-black shrink-0 transition-colors">+</span>
+                                    </button>
                                 `;
                             }).join('');
                         }
                     }
 
                     return `
-                        <div class="bg-white rounded-xl border border-slate-200 p-2.5 shadow-sm flex flex-col justify-between">
+                        <div class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col justify-between">
                             <div>
                                 <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2">
                                     <button type="button" onclick="jumpToDateKey('${k}')" class="font-bold text-xs sm:text-sm text-indigo-700 hover:underline flex items-center gap-1" title="點擊切換至此日期">
@@ -743,7 +888,7 @@
                                     </button>
                                     ${pendingEdits.has(k) ? '<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">已改</span>' : ''}
                                 </div>
-                                <div class="space-y-1 max-h-40 overflow-y-auto custom-scrollbar pr-0.5">
+                                <div class="space-y-1.5">
                                     ${bodyHtml}
                                 </div>
                             </div>
@@ -752,7 +897,7 @@
                 }).join('');
             };
 
-            renderCards();
+            renderContent();
 
             // 找出尚未快取的日期，透過批次或並行抓取
             const missingKeys = prevDays.map(dateKeyISO).filter(k => forceRefresh || (!pendingEdits.has(k) && !getFromMemoryCache(k)));
@@ -770,7 +915,7 @@
                             const norm = normalizeHomeworkData(raw);
                             writeToCache(k, norm, calculateStableHash(raw));
                         }
-                        renderCards();
+                        renderContent();
                         return;
                     }
                 }
@@ -779,7 +924,7 @@
             }
 
             await Promise.allSettled(missingKeys.map(k => loadFromCloudWithCache(k, true)));
-            if (editMode) renderCards();
+            if (editMode) renderContent();
         }
 
         function copyHistoryToToday(subject, content) {
@@ -2252,15 +2397,76 @@
             setTimeout(() => overlay.remove(), 300);
         }
 
+        // ==========================================
+        // 極速批次預載系統 (載入整學期資料)
+        // ==========================================
+        async function prefetchAllData() {
+            try {
+                const params = new URLSearchParams({ action: 'loadAll', classId: CACHE_CONFIG.CLASS_ID, token: 'homework2025', _t: Date.now() });
+                const response = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
+                if (!response.ok) throw new Error('Network error');
+                const text = await response.text();
+                if (text.trim().startsWith('<')) throw new Error('HTML');
+                const result = JSON.parse(text);
+
+                if (result.success) {
+                    // 1. 處理全域跑馬燈資料
+                    if (result.globalData) {
+                        const parsedData = parseRawData(result.globalData);
+                        const safeObj = (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) ? parsedData : {};
+                        currentGlobalDataString = typeof result.globalData === 'string' ? result.globalData : JSON.stringify(result.globalData);
+                        if (safeObj.events) globalEvents = safeObj.events;
+                        if (safeObj.config) {
+                            globalConfig = safeObj.config;
+                            let speed = parseInt(globalConfig.marqueeSpeed, 10);
+                            globalConfig.marqueeSpeed = (isNaN(speed) || speed < 50) ? 200 : (speed > 400 ? 400 : speed);
+                            if (!globalConfig.password) globalConfig.password = '0944';
+                            if (!Array.isArray(globalConfig.memos)) globalConfig.memos = [];
+                        }
+                    }
+
+                    // 2. 處理整學期作業資料 (寫入快取)
+                    if (result.homeworkMap) {
+                        Object.keys(result.homeworkMap).forEach(k => {
+                            const raw = result.homeworkMap[k];
+                            const norm = normalizeHomeworkData(raw);
+                            writeToCache(k, norm, calculateStableHash(raw));
+                        });
+                    }
+
+                    // 3. 立即渲染當下日期 (會瞬間命中剛建立的快取)
+                    const currTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime();
+                    updateCountdown(currTime);
+                    updateMemoCountBadge();
+                    await loadHomeworkWithSWR(dateKeyISO(currentDate));
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch(e) {
+                console.warn('批次載入失敗，自動降級為個別連線', e);
+                loadGlobalEvents();
+                loadHomeworkWithSWR(dateKeyISO(currentDate));
+            }
+        }
+
         window.addEventListener('load', () => {
             currentDate = new Date();
-            if (currentDate.getDay() === 0 || currentDate.getDay() === 6) moveDay(1); 
-            else updateDateDisplay();
+            if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+                do {
+                    currentDate.setDate(currentDate.getDate() + 1);
+                } while (currentDate.getDay() === 0 || currentDate.getDay() === 6);
+            }
             
-            loadGlobalEvents(); 
-            startBackgroundUpdate();
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible' && !editMode) setTimeout(performBackgroundUpdate, 1000);
+            // 先更新日期顯示，並呈現「載入中」畫面
+            updateDateDisplaySync();
+            renderAllHomework(true); 
+            
+            // 啟動極速批次預載
+            prefetchAllData().then(() => {
+                startBackgroundUpdate();
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible' && !editMode) setTimeout(performBackgroundUpdate, 1000);
+                });
             });
         });
     </script>
